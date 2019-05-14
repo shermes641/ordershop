@@ -48,7 +48,7 @@ There should be no failures
 
     >kubectl apply -f .
    
- deployment.extensions "billing-service" created
+    deployment.extensions "billing-service" created
     service "billing-service" created
     deployment.extensions "crm-service" created
     service "crm-service" created

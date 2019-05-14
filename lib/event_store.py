@@ -6,6 +6,7 @@ import uuid
 
 from redis import StrictRedis
 
+from common.utils import log_info, redis_ready
 from lib.domain_model import DomainModel
 
 
@@ -15,7 +16,10 @@ class EventStore(object):
     """
 
     def __init__(self):
-        self.redis = StrictRedis(decode_responses=True, host='redis')
+        self.host = 'redis'
+        self.redis = StrictRedis(decode_responses=True, host=self.host)
+        while not redis_ready(self.redis):
+            time.sleep(2)
         self.subscribers = {}
         self.domain_model = DomainModel(self.redis)
 
@@ -155,7 +159,10 @@ class EventStore(object):
 
         # remove deleted entities
         if deleted_events:
-            result = _remove_deleted(result, _get_entities(deleted_events))
+            log_info('DELETED EVENTS')
+            xx = _get_entities(deleted_events)
+            log_info(xx)
+            result = _remove_deleted(result, xx)
 
         # set updated entities
         if updated_events:
@@ -229,6 +236,10 @@ class Subscriber(threading.Thread):
         """
         if self._running:
             return
+        else:
+            while not redis_ready(self.redis):
+                time.sleep(2)
+            #self.redis = StrictRedis(decode_responses=True, host=self.host)
 
         last_id = '$'
         self._running = True
