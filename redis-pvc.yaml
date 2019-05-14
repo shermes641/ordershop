@@ -1,0 +1,46 @@
+{
+  "kind": "PersistentVolumeClaim",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "redis-pv1-claim",
+    "namespace": "default",
+    "selfLink": "/api/v1/namespaces/default/persistentvolumeclaims/redis-pv1-claim",
+    "uid": "6cf2f203-7273-11e9-8a38-00155df61509",
+    "resourceVersion": "2160720",
+    "creationTimestamp": "2019-05-09T15:59:28Z",
+    "labels": {
+      "app": "redis"
+    },
+    "annotations": {
+      "control-plane.alpha.kubernetes.io/leader": "{\"holderIdentity\":\"4c905e52-7264-11e9-aae7-10653065e5a0\",\"leaseDurationSeconds\":15,\"acquireTime\":\"2019-05-09T15:59:28Z\",\"renewTime\":\"2019-05-09T15:59:30Z\",\"leaderTransitions\":0}",
+      "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"PersistentVolumeClaim\",\"metadata\":{\"annotations\":{},\"labels\":{\"app\":\"redis\"},\"name\":\"redis-pv1-claim\",\"namespace\":\"default\"},\"spec\":{\"accessModes\":[\"ReadWriteOnce\"],\"resources\":{\"requests\":{\"storage\":\"100M\"}}}}\n",
+      "pv.kubernetes.io/bind-completed": "yes",
+      "pv.kubernetes.io/bound-by-controller": "yes",
+      "volume.beta.kubernetes.io/storage-provisioner": "docker.io/hostpath"
+    },
+    "finalizers": [
+      "kubernetes.io/pvc-protection"
+    ]
+  },
+  "spec": {
+    "accessModes": [
+      "ReadWriteOnce"
+    ],
+    "resources": {
+      "requests": {
+        "storage": "100M"
+      }
+    },
+    "volumeName": "redis-pv1-volume",
+    "storageClassName": "hostpath"
+  },
+  "status": {
+    "phase": "Bound",
+    "accessModes": [
+      "ReadWriteOnce"
+    ],
+    "capacity": {
+      "storage": "100M"
+    }
+  }
+}

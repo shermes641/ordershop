@@ -1,0 +1,28 @@
+apiVersion: extensions/v1beta1   # don't think I need this service
+kind: Deployment
+metadata:
+  annotations:
+    kompose.cmd: C:\ProgramData\chocolatey\lib\kubernetes-kompose\tools\kompose.exe
+      convert
+    kompose.version: 1.18.0 (06a2e56)
+  creationTimestamp: null
+  labels:
+    io.kompose.service: product-service
+  name: product-service
+spec:
+  replicas: 1
+  strategy: {}
+  template:
+    metadata:
+      creationTimestamp: null
+      labels:
+        io.kompose.service: product-service
+    spec:
+      containers:
+      - image: 127.0.0.1:5556/ordershop:product
+        name: product-service
+        #ports:
+        #- containerPort: 5000
+        resources: {}
+      restartPolicy: Always
+status: {}

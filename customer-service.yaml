@@ -1,0 +1,39 @@
+{
+  "kind": "Service",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "customer-service",
+    "namespace": "default",
+    "selfLink": "/api/v1/namespaces/default/services/customer-service",
+    "uid": "d4b8777c-6c62-11e9-9870-00155df61509",
+    "resourceVersion": "2029356",
+    "creationTimestamp": "2019-05-01T22:45:34Z",
+    "labels": {
+      "io.kompose.service": "customer-service"
+    },
+    "annotations": {
+      "kompose.cmd": "C:\\ProgramData\\chocolatey\\lib\\kubernetes-kompose\\tools\\kompose.exe convert",
+      "kompose.version": "1.18.0 (06a2e56)",
+      "kubectl.kubernetes.io/last-applied-configuration": "{\"apiVersion\":\"v1\",\"kind\":\"Service\",\"metadata\":{\"annotations\":{\"kompose.cmd\":\"C:\\\\ProgramData\\\\chocolatey\\\\lib\\\\kubernetes-kompose\\\\tools\\\\kompose.exe convert\",\"kompose.version\":\"1.18.0 (06a2e56)\"},\"creationTimestamp\":null,\"labels\":{\"io.kompose.service\":\"customer-service\"},\"name\":\"customer-service\",\"namespace\":\"default\"},\"spec\":{\"ports\":[{\"name\":\"5000\",\"port\":5000}],\"selector\":{\"io.kompose.service\":\"customer-service\"}},\"status\":{\"loadBalancer\":{}}}\n"
+    }
+  },
+  "spec": {
+    "ports": [
+      {
+        "name": "5000",
+        "protocol": "TCP",
+        "port": 5000,
+        "targetPort": 5000
+      }
+    ],
+    "selector": {
+      "io.kompose.service": "customer-service"
+    },
+    "clusterIP": "10.103.140.129",
+    "type": "ClusterIP",
+    "sessionAffinity": "None"
+  },
+  "status": {
+    "loadBalancer": {}
+  }
+}

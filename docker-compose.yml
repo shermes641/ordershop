@@ -1,28 +1,40 @@
 version: '3'
 services:
   billing-service:
-    build: billing_service
+    build:
+      context: .
+      dockerfile: Dockerfile-billing
+    image: 127.0.0.1:5556/ordershop:billing
     volumes:
       - .:/app
       - logvolume01:/var/log
     links:
       - redis
   crm-service:
-    build: crm_service
+    build:
+      context: .
+      dockerfile: Dockerfile-crm
+    image: 127.0.0.1:5556/ordershop:crm
     volumes:
       - .:/app
       - logvolume01:/var/log
     links:
       - redis
   customer-service:
-    build: customer_service
+    build:
+      context: .
+      dockerfile: Dockerfile-customer
+    image: 127.0.0.1:5556/ordershop:customer
     volumes:
       - .:/app
       - logvolume01:/var/log
     links:
       - redis
   gateway-api:
-    build: gateway_api
+    build:
+      context: .
+      dockerfile: Dockerfile-gateway
+    image: 127.0.0.1:5556/ordershop:gateway
     ports:
       - "5000:5000"
     volumes:
@@ -31,33 +43,48 @@ services:
     links:
       - redis
   inventory-service:
-    build: inventory_service
+    build:
+      context: .
+      dockerfile: Dockerfile-inv
+    image: 127.0.0.1:5556/ordershop:inventory
     volumes:
       - .:/app
       - logvolume01:/var/log
     links:
       - redis
   msg-service:
-    build: msg_service
+    build:
+      context: .
+      dockerfile: Dockerfile-msg
+    image: 127.0.0.1:5556/ordershop:msg
     volumes:
       - .:/app
       - logvolume01:/var/log
   order-service:
-    build: order_service
+    build:
+      context: .
+      dockerfile: Dockerfile-order
+    image: 127.0.0.1:5556/ordershop:order
     volumes:
       - .:/app
       - logvolume01:/var/log
     links:
       - redis
   product-service:
-    build: product_service
+    build:
+      context: .
+      dockerfile: Dockerfile-product
+    image: 127.0.0.1:5556/ordershop:product
     volumes:
       - .:/app
       - logvolume01:/var/log
     links:
       - redis
   redis:
-    image: redis
+    build:
+      context: .
+      dockerfile: Dockerfile-redis
+    image: 127.0.0.1:5556/ordershop:redis5.1
     ports:
       - "6379:6379"
 volumes:

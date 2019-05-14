@@ -1,0 +1,15 @@
+# Create PV of manual StorageClass
+kind: PersistentVolume
+apiVersion: v1
+metadata:
+  name: redis-pv1-volume
+  labels:
+    type: local
+spec:
+  storageClassName: hostpath
+  capacity:
+    storage: 100M
+  accessModes:
+    - ReadWriteOnce
+  hostPath:
+    path: "/D/_KUBE/data"

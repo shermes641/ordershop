@@ -1,0 +1,43 @@
+{
+  "kind": "Service",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "redis",
+    "namespace": "default",
+    "selfLink": "/api/v1/namespaces/default/services/redis",
+    "uid": "a49aa8dc-75a3-11e9-8535-00155df61509",
+    "resourceVersion": "2241174",
+    "creationTimestamp": "2019-05-13T17:22:11Z",
+    "labels": {
+      "app": "redis"
+    }
+  },
+  "spec": {
+    "ports": [
+      {
+        "protocol": "TCP",
+        "port": 6379,
+        "targetPort": 6379,
+        "nodePort": 30482
+      }
+    ],
+    "selector": {
+      "app": "redis",
+      "role": "master",
+      "tier": "backend"
+    },
+    "clusterIP": "10.100.147.21",
+    "type": "LoadBalancer",
+    "sessionAffinity": "None",
+    "externalTrafficPolicy": "Cluster"
+  },
+  "status": {
+    "loadBalancer": {
+      "ingress": [
+        {
+          "hostname": "localhost"
+        }
+      ]
+    }
+  }
+}

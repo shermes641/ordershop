@@ -1,0 +1,41 @@
+{
+  "kind": "Service",
+  "apiVersion": "v1",
+  "metadata": {
+    "name": "gateway-api-service",
+    "namespace": "default",
+    "selfLink": "/api/v1/namespaces/default/services/gateway-api-service",
+    "uid": "2d26cdd5-75a7-11e9-8cd6-00155df61509",
+    "resourceVersion": "2242665",
+    "creationTimestamp": "2019-05-13T17:47:28Z",
+    "labels": {
+      "io.kompose.service": "gateway-api"
+    }
+  },
+  "spec": {
+    "ports": [
+      {
+        "protocol": "TCP",
+        "port": 5000,
+        "targetPort": 5000,
+        "nodePort": 31680
+      }
+    ],
+    "selector": {
+      "io.kompose.service": "gateway-api"
+    },
+    "clusterIP": "10.110.231.210",
+    "type": "LoadBalancer",
+    "sessionAffinity": "None",
+    "externalTrafficPolicy": "Cluster"
+  },
+  "status": {
+    "loadBalancer": {
+      "ingress": [
+        {
+          "hostname": "localhost"
+        }
+      ]
+    }
+  }
+}

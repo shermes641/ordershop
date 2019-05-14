@@ -1,0 +1,30 @@
+FROM python:3
+
+RUN pip install flask
+RUN pip install redis
+RUN pip install requests
+
+ENV SERVICE_NAME=gateway_api
+
+RUN mkdir -p /app/gateway_api
+RUN mkdir -p /app/lib
+RUN mkdir -p /app/common
+
+WORKDIR /app/gateway_api
+COPY gateway_api ./
+
+WORKDIR /app/lib
+COPY lib ./
+
+WORKDIR /app/common
+COPY common ./
+
+WORKDIR /app
+
+ENV FLASK_ENV development
+ENV FLASK_APP /app/gateway_api/gateway_api.py
+ENV PYTHONPATH /app
+
+EXPOSE 5000
+
+CMD [ "flask", "run", "--host=0.0.0.0" ]

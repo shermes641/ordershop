@@ -1,0 +1,30 @@
+FROM python:3
+
+RUN pip install flask
+RUN pip install redis
+RUN pip install requests
+
+RUN mkdir -p /app/customer_service
+RUN mkdir -p /app/lib
+RUN mkdir -p /app/common
+
+WORKDIR /app/customer_service
+COPY customer_service ./
+
+WORKDIR /app/lib
+COPY lib ./
+
+WORKDIR /app/common
+COPY common ./
+
+WORKDIR /app
+
+ENV FLASK_ENV development
+ENV FLASK_APP /app/customer_service/customer_service.py
+ENV PYTHONPATH /app
+
+EXPOSE 5000
+
+CMD [ "flask", "run", "--host=0.0.0.0" ]
+
+
