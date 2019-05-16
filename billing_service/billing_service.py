@@ -4,7 +4,7 @@ import os
 import uuid
 import time
 
-from flask import request
+from flask import request, abort
 from flask import Flask
 
 import requests
@@ -12,6 +12,12 @@ import requests
 from common.utils import log_error, log_info
 from lib.event_store import EventStore
 
+class BillingCnt():
+    def __init__(self):
+        self.cnt = 0
+        self.redis_down = False
+
+bc = BillingCnt()
 
 app = Flask(__name__)
 store = EventStore()
@@ -30,6 +36,9 @@ def create_billing(_order_id):
         'done': time.time()
     }
 
+def redis_restart():
+    log_info('RECIEVED REDIS RESTART MSG !!!!!!!!!!!!!!!!!!!!!!')
+    bc.redis_down = True
 
 def order_created(item):
     try:
@@ -73,12 +82,14 @@ Cheers""".format(customer['name'], sum([int(product['price']) for product in pro
 def subscribe_to_domain_events():
     store.subscribe('order', 'created', order_created)
     store.subscribe('billing', 'created', billing_created)
+    store.subscribe('redis', 'restart', redis_restart)
     log_info('subscribed to domain events')
 
 
 def unsubscribe_from_domain_events():
     store.unsubscribe('order', 'created', order_created)
     store.unsubscribe('billing', 'created', billing_created)
+    store.unsubscribe('redis', 'restart', redis_restart)
     log_info('unsubscribed from domain events')
 
 
@@ -88,12 +99,23 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
     subscribe_to_domain_events()
     atexit.register(unsubscribe_from_domain_events)
 
+restart = False
 
 @app.route('/billings', methods=['GET'])
 @app.route('/billing/<billing_id>', methods=['GET'])
+@app.route('/health', methods=['GET'])
+@app.route('/restart', methods=['GET'])
 def get(billing_id=None):
-
-    if billing_id:
+    global restart
+    if 'health' in request.path:
+        if restart:
+            abort(500)
+        else:
+            return json.dumps(True)
+    elif 'restart' in request.path:
+        restart = True
+        return json.dumps(True)
+    elif billing_id:
         billing = store.find_one('billing', billing_id)
         if not billing:
             raise ValueError("could not find billing")
@@ -142,7 +164,6 @@ def put(billing_id):
 
     return json.dumps(True)
 
-
 @app.route('/billing/<billing_id>', methods=['DELETE'])
 def delete(billing_id):
 
@@ -155,3 +176,5 @@ def delete(billing_id):
         return json.dumps(True)
     else:
         raise ValueError("could not find billing")
+
+

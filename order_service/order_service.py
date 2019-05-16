@@ -4,7 +4,7 @@ import os
 import requests
 import uuid
 
-from flask import request
+from flask import request, abort
 from flask import Flask
 
 from common.utils import check_rsp_code
@@ -34,12 +34,23 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
     store.activate_entity_cache('order')
     atexit.register(store.deactivate_entity_cache, 'order')
 
+restart = False
 
 @app.route('/orders', methods=['GET'])
 @app.route('/order/<order_id>', methods=['GET'])
+@app.route('/health', methods=['GET'])
+@app.route('/restart', methods=['GET'])
 def get(order_id=None):
-
-    if order_id:
+    global restart
+    if 'health' in request.path:
+        if restart:
+            abort(500)
+        else:
+            return json.dumps(True)
+    elif 'restart' in request.path:
+        restart = True
+        return json.dumps(True)
+    elif order_id:
         order = store.find_one('order', order_id)
         if not order:
             raise ValueError("could not find order")

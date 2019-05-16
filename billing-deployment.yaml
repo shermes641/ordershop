@@ -22,5 +22,11 @@ spec:
       - image: 127.0.0.1:5556/ordershop:billing
         name: billing-service
         resources: {}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 5
       restartPolicy: Always
 status: {}

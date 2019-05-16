@@ -106,6 +106,7 @@ class EventStore(object):
         self.subscribe(_topic, 'created', functools.partial(self._entity_created, _topic))
         self.subscribe(_topic, 'deleted', functools.partial(self._entity_deleted, _topic))
         self.subscribe(_topic, 'updated', functools.partial(self._entity_updated, _topic))
+        self.subscribe(_topic, 'restart', functools.partial(self._entity_updated, _topic))
 
     def deactivate_entity_cache(self, _topic):
         """
@@ -116,6 +117,7 @@ class EventStore(object):
         self.unsubscribe(_topic, 'created', functools.partial(self._entity_created, _topic))
         self.unsubscribe(_topic, 'deleted', functools.partial(self._entity_deleted, _topic))
         self.unsubscribe(_topic, 'updated', functools.partial(self._entity_updated, _topic))
+        self.unsubscribe(_topic, 'restart', functools.partial(self._entity_updated, _topic))
 
     def _find_all(self, _topic):
         """

@@ -3,7 +3,7 @@ import json
 import os
 import uuid
 
-from flask import request
+from flask import request, abort
 from flask import Flask
 
 from lib.event_store import EventStore
@@ -32,12 +32,23 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
     store.activate_entity_cache('inventory')
     atexit.register(store.deactivate_entity_cache, 'inventory')
 
+restart = False
 
 @app.route('/inventory', methods=['GET'])
 @app.route('/inventory/<inventory_id>', methods=['GET'])
+@app.route('/health', methods=['GET'])
+@app.route('/restart', methods=['GET'])
 def get(inventory_id=None):
-
-    if inventory_id:
+    global restart
+    if 'health' in request.path:
+        if restart:
+            abort(500)
+        else:
+            return json.dumps(True)
+    elif 'restart' in request.path:
+        restart = True
+        return json.dumps(True)
+    elif inventory_id:
         inventory = store.find_one('inventory', inventory_id)
         if not inventory:
             raise ValueError("could not find inventory")

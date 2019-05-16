@@ -1,3 +1,6 @@
+from common.utils import log_info
+
+
 def is_key(_value):
     """
     Check if a value is a key, i.e. has to be looked up on Redis root level.
@@ -100,6 +103,9 @@ class DomainModel(object):
         :param _topic: The type of entity.
         :param _values: The entity properties.
         """
+        log_info('DELETE ENTITY !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
+        log_info(_topic)
+        log_info(_values)
         self.redis.srem('{}_ids'.format(_topic), 1, _values['id'])
         self.redis.delete('{}_entity:{}'.format(_topic, _values['id']))
         for k, v in _values.items():
@@ -111,6 +117,6 @@ class DomainModel(object):
         Check if an entity exists.
 
         :param _topic: The type of entity.
-        :return: True iff an entity exists, else False.
+        :return: True if an entity exists, else False.
         """
         return self.redis.exists('{}_ids'.format(_topic))

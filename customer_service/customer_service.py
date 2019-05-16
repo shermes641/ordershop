@@ -3,7 +3,9 @@ import json
 import os
 import uuid
 
-from flask import request
+from common.utils import log_info, log_error
+
+from flask import request, abort
 from flask import Flask
 
 from lib.event_store import EventStore
@@ -32,12 +34,23 @@ if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
     store.activate_entity_cache('customer')
     atexit.register(store.deactivate_entity_cache, 'customer')
 
+restart = False
 
 @app.route('/customers', methods=['GET'])
 @app.route('/customer/<customer_id>', methods=['GET'])
+@app.route('/health', methods=['GET'])
+@app.route('/restart', methods=['GET'])
 def get(customer_id=None):
-
-    if customer_id:
+    global restart
+    if 'health' in request.path:
+        if restart:
+            abort(500)
+        else:
+            return json.dumps(True)
+    elif 'restart' in request.path:
+        restart = True
+        return json.dumps(True)
+    elif customer_id:
         customer = store.find_one('customer', customer_id)
         if not customer:
             raise ValueError("could not find customer")
@@ -57,6 +70,8 @@ def post():
 
     customer_ids = []
     for value in values:
+        log_info('CREATE CUST')
+        log_info(value)
         try:
             new_customer = create_customer(value['name'], value['email'])
         except KeyError:
@@ -74,6 +89,9 @@ def post():
 def put(customer_id):
 
     value = request.get_json()
+    log_info('PUT CUST')
+    log_info(customer_id)
+    log_info(value)
     try:
         customer = create_customer(value['name'], value['email'])
     except KeyError:
@@ -90,12 +108,18 @@ def put(customer_id):
 @app.route('/customer/<customer_id>', methods=['DELETE'])
 def delete(customer_id):
 
-    customer = store.find_one('customer', customer_id)
-    if customer:
+    log_info('DELETE CUST')
+    log_info(customer_id)
 
+    customer = store.find_one('customer', customer_id)
+    log_info(customer)
+    if customer:
+        log_info('PUBLISH DELETE CUST')
         # trigger event
         store.publish('customer', 'deleted', **customer)
 
         return json.dumps(True)
     else:
+        log_info('DELETE CUST NOT FOUND')
         raise ValueError("could not find customer")
+

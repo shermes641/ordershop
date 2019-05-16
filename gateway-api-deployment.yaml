@@ -24,5 +24,11 @@ spec:
         ports:
         - containerPort: 5000
         resources: {}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 5
       restartPolicy: Always
 status: {}

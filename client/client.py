@@ -142,7 +142,7 @@ class OrderShopTestCase(unittest.TestCase):
     def setUpClass(cls):
 
         # clear state
-        r = redis.StrictRedis(decode_responses=True)
+        r = redis.StrictRedis(decode_responses=True, port=6379)
         r.flushdb()
 
     def test_1_create_customers(self):

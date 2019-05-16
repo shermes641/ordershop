@@ -23,5 +23,11 @@ spec:
       - image: 127.0.0.1:5556/ordershop:customer
         name: customer-service
         resources: {}
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 5000
+          initialDelaySeconds: 10
+          periodSeconds: 5
       restartPolicy: Always
 status: {}
