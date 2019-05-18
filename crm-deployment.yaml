@@ -19,9 +19,9 @@ spec:
         io.kompose.service: crm-service
     spec:
       containers:
-      #- image: crm-service
-      - image: 127.0.0.1:5556/ordershop:crm
-        name: crm-service
-        resources: {}
+        #- image: crm-service
+        - image: 127.0.0.1:5556/ordershop:crm
+          name: crm-service
+          resources: {}
       restartPolicy: Always
 status: {}

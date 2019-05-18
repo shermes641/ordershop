@@ -19,16 +19,19 @@ spec:
         io.kompose.service: gateway-api
     spec:
       containers:
-      - image: 127.0.0.1:5556/ordershop:gateway
-        name: gateway-api
-        ports:
-        - containerPort: 5000
-        resources: {}
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 5000
-          initialDelaySeconds: 10
-          periodSeconds: 5
+        - image: 127.0.0.1:5556/ordershop:gateway
+          name: gateway-api
+          ports:
+            - containerPort: 5000
+          resources: {}
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+              httpHeaders:
+                - name: Host
+                  value: KubernetesLivenessProbe
+            initialDelaySeconds: 5
+            periodSeconds: 5
       restartPolicy: Always
 status: {}

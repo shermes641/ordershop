@@ -14,12 +14,12 @@
   },
   "spec": {
     "ports": [
-      {
-        "protocol": "TCP",
-        "port": 6379,
-        "targetPort": 6379,
-        "nodePort": 30482
-      }
+    {
+      "protocol": "TCP",
+      "port": 6379,
+      "targetPort": 6379,
+      "nodePort": 30482
+    }
     ],
     "selector": {
       "app": "redis",
@@ -34,9 +34,9 @@
   "status": {
     "loadBalancer": {
       "ingress": [
-        {
-          "hostname": "localhost"
-        }
+      {
+        "hostname": "localhost"
+      }
       ]
     }
   }

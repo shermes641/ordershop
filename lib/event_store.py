@@ -6,7 +6,7 @@ import uuid
 
 from redis import StrictRedis
 
-from common.utils import log_info, redis_ready
+from common.utils import redis_ready, log_info, MAX_CONNECT_TRIES, log_error, PREFIX
 from lib.domain_model import DomainModel
 
 
@@ -15,11 +15,10 @@ class EventStore(object):
     Event Store class.
     """
 
-    def __init__(self):
+    def __init__(self, name='undefined'):
         self.host = 'redis'
+        self.name = name
         self.redis = StrictRedis(decode_responses=True, host=self.host)
-        while not redis_ready(self.redis):
-            time.sleep(2)
         self.subscribers = {}
         self.domain_model = DomainModel(self.redis)
 
@@ -52,11 +51,11 @@ class EventStore(object):
         if (_topic, _action) in self.subscribers:
             self.subscribers[(_topic, _action)].add_handler(_handler)
         else:
-            subscriber = Subscriber(_topic, _action, _handler, self.redis)
+            subscriber = Subscriber(_topic, _action, _handler, self.redis, self.name)
             subscriber.start()
             self.subscribers[(_topic, _action)] = subscriber
 
-        return True
+        return self.subscribers
 
     def unsubscribe(self, _topic, _action, _handler):
         """
@@ -106,7 +105,7 @@ class EventStore(object):
         self.subscribe(_topic, 'created', functools.partial(self._entity_created, _topic))
         self.subscribe(_topic, 'deleted', functools.partial(self._entity_deleted, _topic))
         self.subscribe(_topic, 'updated', functools.partial(self._entity_updated, _topic))
-        self.subscribe(_topic, 'restart', functools.partial(self._entity_updated, _topic))
+        return self.subscribe(_topic, 'restart', functools.partial(self._entity_updated, _topic))
 
     def deactivate_entity_cache(self, _topic):
         """
@@ -126,6 +125,7 @@ class EventStore(object):
         :param _topic: The event topic, i.e name of entity.
         :return: A dict mapping id -> entity.
         """
+
         def _get_entities(_events):
             entities = map(lambda x: json.loads(x[1]['entity']), _events)
             return dict(map(lambda x: (x['id'], x), entities))
@@ -161,9 +161,7 @@ class EventStore(object):
 
         # remove deleted entities
         if deleted_events:
-            log_info('DELETED EVENTS')
             xx = _get_entities(deleted_events)
-            log_info(xx)
             result = _remove_deleted(result, xx)
 
         # set updated entities
@@ -215,7 +213,7 @@ class Subscriber(threading.Thread):
     Subscriber Thread class.
     """
 
-    def __init__(self, _topic, _action, _handler, _redis):
+    def __init__(self, _topic, _action, _handler, _redis, name):
         """
         :param _topic: The topic to subscirbe to.
         :param _action: The action to scubscribe to.
@@ -226,31 +224,55 @@ class Subscriber(threading.Thread):
         self._running = False
         self.key = 'events:{{{0}}}_{1}'.format(_topic, _action)
         self.subscribed = True
+        self.exception = 0
         self.handlers = [_handler]
         self.redis = _redis
+        self.name = name
 
     def __len__(self):
         return len(self.handlers)
+
+    def __str__(self):
+        return "Subscriber: running is %s, key is %s , exception is %s" % (self._running, self.key, self.exception)
 
     def run(self):
         """
         Poll the event stream and call each handler with each entry returned.
         """
         if self._running:
+            self.redis.psetex(self.name, 2000, self.name)
             return
         else:
-            while not redis_ready(self.redis):
-                time.sleep(2)
-            #self.redis = StrictRedis(decode_responses=True, host=self.host)
-
+            #######################self.redis.psetex(self.name, 3000, self.name)
+            cnt = 0
+            """
+            while not redis_ready(self.redis, self.name, 1,'Subcriber thread ' + self.name):
+                cnt += 1
+                if cnt < MAX_CONNECT_TRIES:
+                    time.sleep(1)
+                else:
+                    log_error('STORE THREAD RUN CONNECT ERROR cnt: %s  %s' % (self.exception, self.name))
+                    self.exception += 1
+                    return
+            """
         last_id = '$'
         self._running = True
-        while self.subscribed:
-            items = self.redis.xread({self.key: last_id}, block=1000) or []
-            for item in items:
-                for handler in self.handlers:
-                    handler(item)
-                last_id = item[1][0][0]
+        try:
+            while self.subscribed:
+                self.redis.psetex(PREFIX + self.name, 2000, PREFIX + self.name)
+                items = self.redis.xread({self.key: last_id}, block=1000) or []
+                for item in items:
+                    self.redis.psetex(PREFIX + self.name, 2000, PREFIX + self.name)
+                    for handler in self.handlers:
+                        handler(item)
+                    last_id = item[1][0][0]
+            self._running = False
+        except Exception as e:
+            log_error('STORE THREAD RUN Exception: %s' % str(e))
+            self.exception += 1
+            self._running = False
+        finally:
+            self._running = False
         self._running = False
 
     def stop(self):

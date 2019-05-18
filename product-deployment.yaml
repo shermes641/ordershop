@@ -19,16 +19,28 @@ spec:
         io.kompose.service: product-service
     spec:
       containers:
-      - image: 127.0.0.1:5556/ordershop:product
-        name: product-service
-        #ports:
-        #- containerPort: 5000
-        resources: {}
-        livenessProbe:
-          httpGet:
-            path: /health
-            port: 5000
-          initialDelaySeconds: 10
-          periodSeconds: 5
+        - image: 127.0.0.1:5556/ordershop:product
+          name: product-service
+          #ports:
+          #- containerPort: 5000
+          resources: {}
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 5000
+              httpHeaders:
+                - name: Host
+                  value: KubernetesReadinessProbe
+            initialDelaySeconds: 5
+            periodSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+              httpHeaders:
+                - name: Host
+                  value: KubernetesLivenessProbe
+            initialDelaySeconds: 5
+            periodSeconds: 5
       restartPolicy: Always
 status: {}

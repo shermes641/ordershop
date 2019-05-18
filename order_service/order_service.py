@@ -1,70 +1,87 @@
-import atexit
 import json
-import os
-import requests
 import uuid
+from datetime import timedelta
 
-from flask import request, abort
+import requests
 from flask import Flask
+from flask import request, abort
+from timeloop import Timeloop
 
-from common.utils import check_rsp_code
+from common.service_base import ServiceBase
+from common.utils import check_rsp_code, ChkClass
 from lib.event_store import EventStore
 
 
+class OrderService(ServiceBase):
+    def __init__(self):
+        self.chk_class = ChkClass('order')
+        self.store = EventStore(self.chk_class.name)
+        self.init_store(self.chk_class, self.store)
+
+    @staticmethod
+    def create_order(_product_ids, _customer_id):
+        """
+        Create an order entity.
+
+        :param _product_ids: The product IDs the order is for.
+        :param _customer_id: The customer ID the order is made by.
+        :return: A dict with the entity properties.
+        """
+        return {
+            'id': str(uuid.uuid4()),
+            'product_ids': _product_ids,
+            'customer_id': _customer_id
+        }
+
+
+ords = OrderService()
+
+tl = Timeloop()
+
+
+@tl.job(interval=timedelta(seconds=5))
+def rc():
+    ords.redis_chk(ords.chk_class, ords.store)
+
+
+tl.start()
+
 app = Flask(__name__)
-store = EventStore()
 
-
-def create_order(_product_ids, _customer_id):
-    """
-    Create an order entity.
-
-    :param _product_ids: The product IDs the order is for.
-    :param _customer_id: The customer ID the order is made by.
-    :return: A dict with the entity properties.
-    """
-    return {
-        'id': str(uuid.uuid4()),
-        'product_ids': _product_ids,
-        'customer_id': _customer_id
-    }
-
-
-if os.environ.get("WERKZEUG_RUN_MAIN") == "true":
-    store.activate_entity_cache('order')
-    atexit.register(store.deactivate_entity_cache, 'order')
-
-restart = False
 
 @app.route('/orders', methods=['GET'])
 @app.route('/order/<order_id>', methods=['GET'])
 @app.route('/health', methods=['GET'])
+@app.route('/ready', methods=['GET'])
 @app.route('/restart', methods=['GET'])
 def get(order_id=None):
-    global restart
     if 'health' in request.path:
-        if restart:
+        if ords.chk_class.restart:
             abort(500)
         else:
             return json.dumps(True)
+    elif 'ready' in request.path:
+        if ords.chk_resdis_store_bad(ords.chk_class, ords.store):
+            abort(503)
+        else:
+            return json.dumps(True)
     elif 'restart' in request.path:
-        restart = True
+        ords.chk_class.restart = True
         return json.dumps(True)
     elif order_id:
-        order = store.find_one('order', order_id)
+        order = ords.store.find_one('order', order_id)
         if not order:
             raise ValueError("could not find order")
 
         return json.dumps(order) if order else json.dumps(False)
     else:
-        return json.dumps([item for item in store.find_all('order')])
+        return json.dumps([item for item in ords.store.find_all('order')])
 
 
 @app.route('/orders/unbilled', methods=['GET'])
 def get_unbilled():
-
-    billings = store.find_all('billing')
-    orders = store.find_all('order')
+    billings = ords.store.find_all('billing')
+    orders = ords.store.find_all('order')
 
     for billing in billings:
         to_remove = list(filter(lambda x: x['id'] == billing['order_id'], orders))
@@ -76,7 +93,6 @@ def get_unbilled():
 @app.route('/order', methods=['POST'])
 @app.route('/orders', methods=['POST'])
 def post():
-
     values = request.get_json()
     if not isinstance(values, list):
         values = [values]
@@ -90,12 +106,12 @@ def post():
     order_ids = []
     for value in values:
         try:
-            new_order = create_order(value['product_ids'], value['customer_id'])
+            new_order = ords.create_order(value['product_ids'], value['customer_id'])
         except KeyError:
             raise ValueError("missing mandatory parameter 'product_ids' and/or 'customer_id'")
 
         # trigger event
-        store.publish('order', 'created', **new_order)
+        ords.store.publish('order', 'created', **new_order)
 
         order_ids.append(new_order['id'])
 
@@ -104,15 +120,14 @@ def post():
 
 @app.route('/order/<order_id>', methods=['PUT'])
 def put(order_id):
-
-    order = store.find_one('order', order_id)
+    order = ords.store.find_one('order', order_id)
     for product_id in order['product_ids']:
         rsp = requests.post('http://inventory-service:5000/incr/{}'.format(product_id))
         check_rsp_code(rsp)
 
     value = request.get_json()
     try:
-        order = create_order(value['product_ids'], value['customer_id'])
+        order = ords.create_order(value['product_ids'], value['customer_id'])
     except KeyError:
         raise ValueError("missing mandatory parameter 'product_ids' and/or 'customer_id'")
 
@@ -125,7 +140,7 @@ def put(order_id):
     order['id'] = order_id
 
     # trigger event
-    store.publish('order', 'updated', **order)
+    ords.store.publish('order', 'updated', **order)
 
     for product_id in value['product_ids']:
         rsp = requests.post('http://inventory-service:5000/decr/{}'.format(product_id))
@@ -136,15 +151,14 @@ def put(order_id):
 
 @app.route('/order/<order_id>', methods=['DELETE'])
 def delete(order_id):
-
-    order = store.find_one('order', order_id)
+    order = ords.store.find_one('order', order_id)
     if order:
         for product_id in order['product_ids']:
             rsp = requests.post('http://inventory-service:5000/incr/{}'.format(product_id))
             check_rsp_code(rsp)
 
         # trigger event
-        store.publish('order', 'deleted', **order)
+        ords.store.publish('order', 'deleted', **order)
 
         return json.dumps(True)
     else:

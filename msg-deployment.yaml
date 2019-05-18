@@ -19,10 +19,10 @@ spec:
         io.kompose.service: msg-service
     spec:
       containers:
-      - image: 127.0.0.1:5556/ordershop:msg
-        name: msg-service
-        #ports:
-        #- containerPort: 5000
-        resources: {}
+        - image: 127.0.0.1:5556/ordershop:msg
+          name: msg-service
+          #ports:
+          #- containerPort: 5000
+          resources: {}
       restartPolicy: Always
 status: {}

@@ -1,21 +1,62 @@
 import json
+from datetime import timedelta
 
 import requests
-from flask import request, abort
 from flask import Flask
+from flask import request, abort
+from timeloop import Timeloop
 
-from common.utils import check_rsp_code, redis_ready, log_info, ServiceUrls, setInterval
+from common.service_base import ServiceBase
+from common.utils import check_rsp_code, log_info, ChkClass, services_ready, restart_services, PREFIX, redis_ready, ServiceUrls, log_error
 from lib.event_store import EventStore
 
+
+class GatewayService(ServiceBase):
+    def __init__(self):
+        self.chk_class = ChkClass('gateway')
+        self.store = EventStore(self.chk_class.name)
+        self.init_store(self.chk_class, self.store)
+
+    def stores_ready(self, keys=None, ret_val=1, msg='?????????????'):
+        try:
+            x = "','" + PREFIX
+            y = "gs.chk_class.res = self.store.redis.exists('" + PREFIX + x.join(keys) + "')"
+            exec(y)
+            log_info('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ %s' % gs.chk_class.res)
+            if int(gs.chk_class.res) != ret_val:
+                exec(y)
+                log_info('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ %s' % gs.chk_class.res)
+            return int(gs.chk_class.res) == ret_val
+        except Exception as e:
+            s = 'qqqqqqqqqqqqqqqq!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! redis_ready REDIS NOT READY  %s   %s' % (str(e), msg)
+            log_error(s)
+            return False
+
+gs = GatewayService()
+
+tl = Timeloop()
+
+
+
+
+@tl.job(interval=timedelta(seconds=3))
+def rc():
+    gs.redis_chk(gs.chk_class, gs.store)
+
+@tl.job(interval=timedelta(seconds=10))
+def rc1():
+    service_urls = ServiceUrls()
+    res = gs.stores_ready(service_urls.names, len(service_urls.names), 't1 rc1')
+    ret = '' #None
+    if res == False:
+        ret = 'Store Error rc1'
+    services_chk(ret)
+
+
+tl.start()
+
 app = Flask(__name__)
-store = EventStore()
 
-restart = False
-redis_cnt = 0
-restart_cnt = 5
-
-def ready():
-    return redis_cnt > 2 * restart_cnt
 
 def proxy_command_request(_base_url):
     """
@@ -26,7 +67,6 @@ def proxy_command_request(_base_url):
 
     # handle POST
     if request.method == 'POST':
-
         try:
             values = json.loads(request.data)
         except Exception:
@@ -55,24 +95,35 @@ def proxy_command_request(_base_url):
 @app.route('/billings', methods=['GET'])
 @app.route('/billing/<billing_id>', methods=['GET'])
 @app.route('/health', methods=['GET'])
+@app.route('/ready', methods=['GET'])
 @app.route('/restart', methods=['GET'])
 def billing_query(billing_id=None):
+    """
+    Route billing requests
+    :param billing_id: Get a particular bill
+    :return:
+    """
     result = None
-    global restart
     if 'health' in request.path:
-        if restart:
+        if gs.chk_class.restart:
             abort(500)
         else:
+            gs.store.redis.psetex(PREFIX + gs.chk_class.name, 7000, PREFIX + gs.chk_class.name)
             return json.dumps(True)
-    elif not ready():
+    elif 'ready' in request.path:
+        if gs.chk_resdis_store_bad(gs.chk_class, gs.store):
+            abort(503)
+        else:
+            return json.dumps(True)
+    elif gs.chk_class.not_ready:
         abort(503)
     elif 'restart' in request.path:
-        restart = True
+        gs.chk_class.restart = True
         return json.dumps(True)
     elif billing_id:
-        result = store.find_one('billing', billing_id)
+        result = gs.store.find_one('billing', billing_id)
     else:
-        result = store.find_all('billing')
+        result = gs.store.find_all('billing')
     return json.dumps(result)
 
 
@@ -82,7 +133,7 @@ def billing_query(billing_id=None):
 @app.route('/billing/<billing_id>', methods=['PUT'])
 @app.route('/billing/<billing_id>', methods=['DELETE'])
 def billing_command(billing_id=None):
-    if not ready():
+    if gs.chk_class.not_ready:
         abort(503)
     else:
         return proxy_command_request('http://billing-service:5000{}')
@@ -92,12 +143,12 @@ def billing_command(billing_id=None):
 @app.route('/customer/<customer_id>', methods=['GET'])
 def customer_query(customer_id=None):
     result = None
-    if not ready():
+    if gs.chk_class.not_ready:
         abort(503)
     elif customer_id:
-        result = store.find_one('customer', customer_id)
+        result = gs.store.find_one('customer', customer_id)
     else:
-        result = store.find_all('customer')
+        result = gs.store.find_all('customer')
     return json.dumps(result)
 
 
@@ -107,7 +158,7 @@ def customer_query(customer_id=None):
 @app.route('/customer/<customer_id>', methods=['PUT'])
 @app.route('/customer/<customer_id>', methods=['DELETE'])
 def customer_command(customer_id=None):
-    if not ready():
+    if gs.chk_class.not_ready:
         abort(503)
     else:
         return proxy_command_request('http://customer-service:5000{}')
@@ -117,12 +168,12 @@ def customer_command(customer_id=None):
 @app.route('/product/<product_id>', methods=['GET'])
 def product_query(product_id=None):
     result = None
-    if not ready():
+    if gs.chk_class.not_ready:
         abort(503)
     elif product_id:
-        result = store.find_one('product', product_id)
+        result = gs.store.find_one('product', product_id)
     else:
-        result = store.find_all('product')
+        result = gs.store.find_all('product')
     return json.dumps(result)
 
 
@@ -132,7 +183,7 @@ def product_query(product_id=None):
 @app.route('/product/<product_id>', methods=['PUT'])
 @app.route('/product/<product_id>', methods=['DELETE'])
 def product_command(product_id=None):
-    if not ready():
+    if gs.chk_class.not_ready:
         abort(503)
     else:
         return proxy_command_request('http://product-service:5000{}')
@@ -142,12 +193,12 @@ def product_command(product_id=None):
 @app.route('/inventory/<inventory_id>', methods=['GET'])
 def inventory_query(inventory_id=None):
     result = None
-    if not ready():
+    if gs.chk_class.not_ready:
         abort(503)
     elif inventory_id:
-        result = store.find_one('inventory', inventory_id)
+        result = gs.store.find_one('inventory', inventory_id)
     else:
-        result = store.find_all('inventory')
+        result = gs.store.find_all('inventory')
     return json.dumps(result)
 
 
@@ -157,7 +208,7 @@ def inventory_query(inventory_id=None):
 @app.route('/inventory/<inventory_id>', methods=['DELETE'])
 def inventory_command(inventory_id=None):
     result = None
-    if not ready():
+    if gs.chk_class.not_ready:
         abort(503)
     else:
         return proxy_command_request('http://inventory-service:5000{}')
@@ -168,7 +219,7 @@ def inventory_command(inventory_id=None):
 @app.route('/orders/unbilled', methods=['GET'])
 def order_query(order_id=None):
     result = None
-    if not ready():
+    if gs.chk_class.not_ready:
         abort(503)
     # handle additional query 'unbilled orders'
     elif request.path.endswith('/orders/unbilled'):
@@ -176,9 +227,9 @@ def order_query(order_id=None):
         check_rsp_code(rsp)
         return rsp.text
     elif order_id:
-        result = store.find_one('order', order_id)
+        result = gs.store.find_one('order', order_id)
     else:
-        result = store.find_all('order')
+        result = gs.store.find_all('order')
     return json.dumps(result)
 
 
@@ -188,7 +239,7 @@ def order_query(order_id=None):
 @app.route('/order/<order_id>', methods=['PUT'])
 @app.route('/order/<order_id>', methods=['DELETE'])
 def order_command(order_id=None):
-    if not ready():
+    if gs.chk_class.not_ready:
         abort(503)
     else:
         return proxy_command_request('http://order-service:5000{}')
@@ -196,43 +247,41 @@ def order_command(order_id=None):
 
 @app.route('/report', methods=['GET'])
 def report():
-    result = None
-    if not ready():
+    if gs.chk_class.not_ready:
         abort(503)
     else:
         result = {
-            "products": store.find_all('product'),
-            "inventory": store.find_all('inventory'),
-            "customers": store.find_all('customer'),
-            "orders": store.find_all('order'),
-            "billings": store.find_all('billing')
+            "products": gs.store.find_all('product'),
+            "inventory": gs.store.find_all('inventory'),
+            "customers": gs.store.find_all('customer'),
+            "orders": gs.store.find_all('order'),
+            "billings": gs.store.find_all('billing')
         }
 
         return json.dumps(result)
 
 
-def redis_chk(redis):
-    global store, redis_cnt
-    redis_down = not redis_ready(redis)
-    log_info('redis_chk %s  down ? %s' % (redis_cnt, redis_down))
-    if redis_down:
-        redis_cnt = 0
-    else:
-        redis_cnt += 1
-    if redis_cnt == restart_cnt:
-        service_urls = ServiceUrls()
-        log_info(service_urls.urls)
-        for u in service_urls.urls:
-            url = 'http://' + u + '/restart'
-            r = requests.get(url=url)
-            log_info(url)
-            log_info(r.status_code)
-
-    """
-    if redis_cnt < 3 and redis_down:
-        log_info('!!!!!!!!!!!!!!!!!!!!!!!!!!! PUBLISH REDIS RESTART !!!!!!!!!!!!!!!!!')
-        store.publish('redis', 'restart')
-    """
 
 
-setInterval(lambda: redis_chk(store.redis), 2)
+def services_chk(ret=None):
+    if ret is None:
+        ret = services_ready(gs.chk_class)
+    if ret is not None:
+        if ret == '':
+            gs.chk_class.not_ready_cnt = 0
+            gs.chk_class.not_ready = False
+        else:
+            gs.chk_class.not_ready_cnt += 1
+            if gs.chk_class.not_ready_cnt > gs.chk_class.max_not_ready_cnt:
+                gs.chk_class.not_ready = True
+        gs.chk_class.not_ready_msg = ret
+
+    if gs.chk_class.not_ready_cnt > gs.chk_class.max_not_ready_cnt:
+        log_info('!!!!!!!!!!!!!!!!! RESTARTING SERVICES !!!!!!!!!!!!!!!!!!!!!!!!')
+        restart_services()
+        gs.chk_class.not_ready_cnt = 0
+        gs.chk_class.not_ready = ''
+
+
+gs.chk_class.not_ready = False
+gs.chk_class.max_not_ready_cnt = 11

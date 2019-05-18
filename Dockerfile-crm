@@ -2,6 +2,7 @@ FROM python:3
 
 RUN pip install redis
 RUN pip install requests
+RUN pip install timeloop
 
 RUN mkdir -p /app/crm_service
 RUN mkdir -p /app/lib

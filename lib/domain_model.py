@@ -1,5 +1,3 @@
-from common.utils import log_info
-
 
 def is_key(_value):
     """
@@ -103,9 +101,7 @@ class DomainModel(object):
         :param _topic: The type of entity.
         :param _values: The entity properties.
         """
-        log_info('DELETE ENTITY !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-        log_info(_topic)
-        log_info(_values)
+
         self.redis.srem('{}_ids'.format(_topic), 1, _values['id'])
         self.redis.delete('{}_entity:{}'.format(_topic, _values['id']))
         for k, v in _values.items():

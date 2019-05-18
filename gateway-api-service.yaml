@@ -14,12 +14,12 @@
   },
   "spec": {
     "ports": [
-      {
-        "protocol": "TCP",
-        "port": 5000,
-        "targetPort": 5000,
-        "nodePort": 31680
-      }
+    {
+      "protocol": "TCP",
+      "port": 5000,
+      "targetPort": 5000,
+      "nodePort": 31680
+    }
     ],
     "selector": {
       "io.kompose.service": "gateway-api"
@@ -32,9 +32,9 @@
   "status": {
     "loadBalancer": {
       "ingress": [
-        {
-          "hostname": "localhost"
-        }
+      {
+        "hostname": "localhost"
+      }
       ]
     }
   }

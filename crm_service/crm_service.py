@@ -1,13 +1,11 @@
 import atexit
 import json
-
 import requests
-
-from common.utils import log_info, log_error
 from lib.event_store import EventStore
+from common.utils import log_error, log_info
 
-store = EventStore()
-redis_cnt = 0
+
+store = EventStore('crm')
 
 
 def customer_created(item):
@@ -29,8 +27,6 @@ Cheers""".format(msg_data['name'])
 
 def customer_deleted(item):
     try:
-        log_info('CRM DELETE CUST')
-        log_info(item)
         msg_data = json.loads(item[1][0][1]['entity'])
         msg = """Dear {}!
 
@@ -71,16 +67,12 @@ def subscribe_to_domain_events():
     store.subscribe('customer', 'created', customer_created)
     store.subscribe('customer', 'deleted', customer_deleted)
     store.subscribe('order', 'created', order_created)
-    log_info('subscribed to domain events')
-    # not needed --- if redis is down, won;t get through
-    # store.publish('redis', 'restart')
 
 
 def unsubscribe_from_domain_events():
     store.unsubscribe('customer', 'created', customer_created)
     store.unsubscribe('customer', 'deleted', customer_deleted)
     store.unsubscribe('order', 'created', order_created)
-    log_info('unsubscribed from domain events')
 
 
 subscribe_to_domain_events()

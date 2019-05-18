@@ -329,7 +329,7 @@ In another console:
     
 In another console:
             
-            py -3 -m unittest client/client.py     # the tests fail is we do not have a writable volume ?????????
+    py -3 -m unittest client/client.py   
             
             
 
