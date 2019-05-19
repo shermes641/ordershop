@@ -16,7 +16,7 @@ def customer_created(item):
 Welcome to Ordershop.
 
 Cheers""".format(msg_data['name'])
-
+        log_info(msg)
         requests.post('http://msg-service:5000/email', json={
             "to": msg_data['email'],
             "msg": msg
@@ -33,7 +33,7 @@ def customer_deleted(item):
 Good bye, hope to see you soon again at Ordershop.
 
 Cheers""".format(msg_data['name'])
-
+        log_info(msg)
         requests.post('http://msg-service:5000/email', json={
             "to": msg_data['email'],
             "msg": msg
@@ -54,7 +54,7 @@ Thank you for buying following {} products from Ordershop:
 {}
 
 Cheers""".format(customer['name'], len(products), ", ".join([product['name'] for product in products]))
-
+        log_info(msg)
         requests.post('http://msg-service:5000/email', json={
             "to": customer['email'],
             "msg": msg
