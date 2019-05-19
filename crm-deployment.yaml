@@ -19,9 +19,26 @@ spec:
         io.kompose.service: crm-service
     spec:
       containers:
-        #- image: crm-service
         - image: 127.0.0.1:5556/ordershop:crm
           name: crm-service
           resources: {}
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: 5000
+              httpHeaders:
+                - name: Host
+                  value: KubernetesReadinessProbe
+            initialDelaySeconds: 5
+            periodSeconds: 2
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 5000
+              httpHeaders:
+                - name: Host
+                  value: KubernetesLivenessProbe
+            initialDelaySeconds: 5
+            periodSeconds: 5
       restartPolicy: Always
 status: {}
