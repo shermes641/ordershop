@@ -280,6 +280,7 @@ class OrderShopTestCase(unittest.TestCase):
         # check result
         self.assertEqual(len(unbilled), 8)
 
+    """
     def test_Z_print_report(self):
         # load customers
         rsp = urllib.request.urlopen('{}/report'.format(BASE_URL))
@@ -290,3 +291,4 @@ class OrderShopTestCase(unittest.TestCase):
 
         # check result
         self.assertIsNotNone(rsp)
+    """

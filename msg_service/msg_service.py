@@ -1,10 +1,12 @@
 import json
+import logging
 
 from flask import Flask
 from flask import request
 
 app = Flask(__name__)
-
+log = logging.getLogger('werkzeug')
+log.setLevel('WARNING')
 
 @app.route('/email', methods=['POST'])
 def post():

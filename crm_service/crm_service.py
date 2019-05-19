@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import timedelta
 
 import requests
@@ -95,7 +96,8 @@ def rc():
 tl.start()
 
 app = Flask(__name__)
-
+log = logging.getLogger('werkzeug')
+log.setLevel(crm.chk_class.service.LOGLEVEL)
 
 @app.route('/health', methods=['GET'])
 @app.route('/ready', methods=['GET'])
@@ -107,7 +109,7 @@ def get():
         else:
             return json.dumps(True)
     elif 'ready' in request.path:
-        if crm.chk_resdis_store_bad(crm.chk_class, crm.store):
+        if crm.chk_redis_store_bad(crm.chk_class, crm.store):
             abort(503)
         else:
             return json.dumps(True)

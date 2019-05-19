@@ -60,7 +60,7 @@ def get(inventory_id=None):
         else:
             return json.dumps(True)
     elif 'ready' in request.path:
-        if invs.chk_resdis_store_bad(invs.chk_class, invs.store):
+        if invs.chk_redis_store_bad(invs.chk_class, invs.store):
             abort(503)
         else:
             return json.dumps(True)

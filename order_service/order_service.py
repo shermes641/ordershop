@@ -1,4 +1,5 @@
 import json
+import logging
 import uuid
 from datetime import timedelta
 
@@ -47,7 +48,8 @@ def rc():
 tl.start()
 
 app = Flask(__name__)
-
+log = logging.getLogger('werkzeug')
+log.setLevel(ords.chk_class.service.LOGLEVEL)
 
 @app.route('/orders', methods=['GET'])
 @app.route('/order/<order_id>', methods=['GET'])
@@ -61,7 +63,7 @@ def get(order_id=None):
         else:
             return json.dumps(True)
     elif 'ready' in request.path:
-        if ords.chk_resdis_store_bad(ords.chk_class, ords.store):
+        if ords.chk_redis_store_bad(ords.chk_class, ords.store):
             abort(503)
         else:
             return json.dumps(True)

@@ -27,8 +27,8 @@ class ServiceBase(object):
             chk_class.cnt = 0
             chk_class.not_ready_cnt = 0
 
-    def chk_resdis_store_bad(self, chk_class, store):
-        res = redis_ready(store.redis, [chk_class.name], 1, 'chk_resdis_store_bad')
+    def chk_redis_store_bad(self, chk_class, store):
+        res = redis_ready(store.redis, [chk_class.name], 1, 'chk_redis_store_bad')
         chk_class.store_down = not res
         #log_info('!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! NOT READY  nt   %s   sd  %s   cnt: %s    %s' % (chk_class.not_ready, chk_class.store_down, chk_class.cnt, res))
         if chk_class.not_ready or chk_class.store_down:
@@ -42,7 +42,6 @@ class ServiceBase(object):
 
     def redis_chk(self, chk_class, store):
         try:
-            #log_info('MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMM22222222222  services_ready MUTEX %s' % chk_class.mutex)
             if chk_class.mutex is True:
                 return
             chk_class.mutex = True

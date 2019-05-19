@@ -1,4 +1,5 @@
 import json
+import logging
 import uuid
 from datetime import timedelta
 
@@ -46,6 +47,8 @@ def rc():
 tl.start()
 
 app = Flask(__name__)
+log = logging.getLogger('werkzeug')
+log.setLevel(prods.chk_class.service.LOGLEVEL)
 
 
 @app.route('/products', methods=['GET'])
@@ -60,7 +63,7 @@ def get(product_id=None):
         else:
             return json.dumps(True)
     elif 'ready' in request.path:
-        if prods.chk_resdis_store_bad(prods.chk_class, prods.store):
+        if prods.chk_redis_store_bad(prods.chk_class, prods.store):
             abort(503)
         else:
             return json.dumps(True)

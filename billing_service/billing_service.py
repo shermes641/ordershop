@@ -1,4 +1,5 @@
 import json
+import logging
 import time
 import uuid
 from datetime import timedelta
@@ -94,6 +95,8 @@ def rc():
 tl.start()
 
 app = Flask(__name__)
+log = logging.getLogger('werkzeug')
+log.setLevel(bs.chk_class.service.LOGLEVEL)
 
 
 @app.route('/billings', methods=['GET'])
@@ -108,7 +111,7 @@ def get(billing_id=None):
         else:
             return json.dumps(True)
     elif 'ready' in request.path:
-        if bs.chk_resdis_store_bad(bs.chk_class, bs.store):
+        if bs.chk_redis_store_bad(bs.chk_class, bs.store):
             abort(503)
         else:
             return json.dumps(True)

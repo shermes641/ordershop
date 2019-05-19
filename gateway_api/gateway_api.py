@@ -1,4 +1,5 @@
 import json
+import logging
 from datetime import timedelta
 
 import requests
@@ -7,7 +8,7 @@ from flask import request, abort
 from timeloop import Timeloop
 
 from common.service_base import ServiceBase
-from common.utils import check_rsp_code, log_info, ChkClass, services_ready, restart_services, PREFIX, redis_ready, ServiceUrls, log_error
+from common.utils import check_rsp_code, log_info, ChkClass, PREFIX, ServiceUrls, log_error, services_chk
 from lib.event_store import EventStore
 
 
@@ -22,74 +23,76 @@ class GatewayService(ServiceBase):
             x = "','" + PREFIX
             y = "gs.chk_class.res = self.store.redis.exists('" + PREFIX + x.join(keys) + "')"
             exec(y)
-            log_info('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ %s' % gs.chk_class.res)
+            log_info('$$$ %s' % gs.chk_class.res)
             if int(gs.chk_class.res) != ret_val:
                 exec(y)
                 log_info('$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$$ %s' % gs.chk_class.res)
             return int(gs.chk_class.res) == ret_val
         except Exception as e:
-            s = 'qqqqqqqqqqqqqqqq!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! redis_ready REDIS NOT READY  %s   %s' % (str(e), msg)
+            s = '!!!!!!!!!!!!!!!!!!!!!!! redis_ready REDIS NOT READY  %s   %s' % (str(e), msg)
             log_error(s)
             return False
+
+    def proxy_command_request(self, _base_url):
+        """
+        Helper function to proxy POST, PUT and DELETE requests to the according service.
+
+        :param _base_url: The URL of the service.
+        """
+
+        # handle POST
+        if request.method == 'POST':
+            try:
+                values = json.loads(request.data)
+            except Exception:
+                raise ValueError("cannot parse json body {}".format(request.data))
+
+            rsp = requests.post(_base_url.format(request.full_path), json=values)
+            return check_rsp_code(rsp)
+
+        # handle PUT
+        if request.method == 'PUT':
+
+            try:
+                values = json.loads(request.data)
+            except Exception:
+                raise ValueError("cannot parse json body {}".format(request.data))
+
+            rsp = requests.put(_base_url.format(request.full_path), json=values)
+            return check_rsp_code(rsp)
+
+        # handle DELETE
+        if request.method == 'DELETE':
+            rsp = requests.delete(_base_url.format(request.full_path))
+            return check_rsp_code(rsp)
+
 
 gs = GatewayService()
 
 tl = Timeloop()
 
 
-
-
 @tl.job(interval=timedelta(seconds=3))
 def rc():
     gs.redis_chk(gs.chk_class, gs.store)
 
-@tl.job(interval=timedelta(seconds=10))
+
+@tl.job(interval=timedelta(seconds=5))
 def rc1():
-    service_urls = ServiceUrls()
-    res = gs.stores_ready(service_urls.names, len(service_urls.names), 't1 rc1')
-    ret = '' #None
+    gs.chk_class.service = ServiceUrls()
+    res = gs.stores_ready(gs.chk_class.service.names, len(gs.chk_class.service.names), 't1 rc1')
+    ret = ''  # None
+    # noinspection PyPep8
     if res == False:
         ret = 'Store Error rc1'
-    services_chk(ret)
+    services_chk(gs.chk_class, ret)
 
 
 tl.start()
 
 app = Flask(__name__)
-
-
-def proxy_command_request(_base_url):
-    """
-    Helper function to proxy POST, PUT and DELETE requests to the according service.
-
-    :param _base_url: The URL of the service.
-    """
-
-    # handle POST
-    if request.method == 'POST':
-        try:
-            values = json.loads(request.data)
-        except Exception:
-            raise ValueError("cannot parse json body {}".format(request.data))
-
-        rsp = requests.post(_base_url.format(request.full_path), json=values)
-        return check_rsp_code(rsp)
-
-    # handle PUT
-    if request.method == 'PUT':
-
-        try:
-            values = json.loads(request.data)
-        except Exception:
-            raise ValueError("cannot parse json body {}".format(request.data))
-
-        rsp = requests.put(_base_url.format(request.full_path), json=values)
-        return check_rsp_code(rsp)
-
-    # handle DELETE
-    if request.method == 'DELETE':
-        rsp = requests.delete(_base_url.format(request.full_path))
-        return check_rsp_code(rsp)
+log = logging.getLogger('werkzeug')
+log.setLevel(gs.chk_class.service.LOGLEVEL)
 
 
 @app.route('/billings', methods=['GET'])
@@ -111,7 +114,7 @@ def billing_query(billing_id=None):
             gs.store.redis.psetex(PREFIX + gs.chk_class.name, 7000, PREFIX + gs.chk_class.name)
             return json.dumps(True)
     elif 'ready' in request.path:
-        if gs.chk_resdis_store_bad(gs.chk_class, gs.store):
+        if gs.chk_redis_store_bad(gs.chk_class, gs.store):
             abort(503)
         else:
             return json.dumps(True)
@@ -136,7 +139,7 @@ def billing_command(billing_id=None):
     if gs.chk_class.not_ready:
         abort(503)
     else:
-        return proxy_command_request('http://billing-service:5000{}')
+        return gs.proxy_command_request('http://billing-service:5000{}')
 
 
 @app.route('/customers', methods=['GET'])
@@ -161,7 +164,7 @@ def customer_command(customer_id=None):
     if gs.chk_class.not_ready:
         abort(503)
     else:
-        return proxy_command_request('http://customer-service:5000{}')
+        return gs.proxy_command_request('http://customer-service:5000{}')
 
 
 @app.route('/products', methods=['GET'])
@@ -186,7 +189,7 @@ def product_command(product_id=None):
     if gs.chk_class.not_ready:
         abort(503)
     else:
-        return proxy_command_request('http://product-service:5000{}')
+        return gs.proxy_command_request('http://product-service:5000{}')
 
 
 @app.route('/inventory', methods=['GET'])
@@ -211,7 +214,7 @@ def inventory_command(inventory_id=None):
     if gs.chk_class.not_ready:
         abort(503)
     else:
-        return proxy_command_request('http://inventory-service:5000{}')
+        return gs.proxy_command_request('http://inventory-service:5000{}')
 
 
 @app.route('/orders', methods=['GET'])
@@ -242,7 +245,7 @@ def order_command(order_id=None):
     if gs.chk_class.not_ready:
         abort(503)
     else:
-        return proxy_command_request('http://order-service:5000{}')
+        return gs.proxy_command_request('http://order-service:5000{}')
 
 
 @app.route('/report', methods=['GET'])
@@ -259,28 +262,6 @@ def report():
         }
 
         return json.dumps(result)
-
-
-
-
-def services_chk(ret=None):
-    if ret is None:
-        ret = services_ready(gs.chk_class)
-    if ret is not None:
-        if ret == '':
-            gs.chk_class.not_ready_cnt = 0
-            gs.chk_class.not_ready = False
-        else:
-            gs.chk_class.not_ready_cnt += 1
-            if gs.chk_class.not_ready_cnt > gs.chk_class.max_not_ready_cnt:
-                gs.chk_class.not_ready = True
-        gs.chk_class.not_ready_msg = ret
-
-    if gs.chk_class.not_ready_cnt > gs.chk_class.max_not_ready_cnt:
-        log_info('!!!!!!!!!!!!!!!!! RESTARTING SERVICES !!!!!!!!!!!!!!!!!!!!!!!!')
-        restart_services()
-        gs.chk_class.not_ready_cnt = 0
-        gs.chk_class.not_ready = ''
 
 
 gs.chk_class.not_ready = False

@@ -22,7 +22,8 @@ COPY common ./
 
 WORKDIR /app
 
-ENV FLASK_ENV development
+ENV FLASK_ENV production
+ENV LOGLEVEL WARNING
 ENV FLASK_APP /app/gateway_api/gateway_api.py
 ENV PYTHONPATH /app
 

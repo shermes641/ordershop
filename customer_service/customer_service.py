@@ -1,4 +1,5 @@
 import json
+import logging
 import uuid
 from datetime import timedelta
 
@@ -7,7 +8,7 @@ from flask import request, abort
 from timeloop import Timeloop
 
 from common.service_base import ServiceBase
-from common.utils import log_info, ChkClass
+from common.utils import ChkClass
 from lib.event_store import EventStore
 
 
@@ -46,7 +47,8 @@ def rc():
 tl.start()
 
 app = Flask(__name__)
-
+log = logging.getLogger('werkzeug')
+log.setLevel(cs.chk_class.service.LOGLEVEL)
 
 @app.route('/customers', methods=['GET'])
 @app.route('/customer/<customer_id>', methods=['GET'])
@@ -60,7 +62,7 @@ def get(customer_id=None):
         else:
             return json.dumps(True)
     elif 'ready' in request.path:
-        if cs.chk_resdis_store_bad(cs.chk_class, cs.store):
+        if cs.chk_redis_store_bad(cs.chk_class, cs.store):
             abort(503)
         else:
             return json.dumps(True)

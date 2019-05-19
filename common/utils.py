@@ -6,7 +6,7 @@ import requests
 
 MAX_CONNECT_TRIES = 10
 
-PREFIX = 'srv_'
+PREFIX = 'powerhive_srv_'
 
 
 def log_info(_msg):
@@ -37,10 +37,11 @@ class ChkClass:
         self.not_ready = False
         self.not_ready_msg = ''
         self.not_ready_cnt = 0
-        self.max_not_ready_cnt = 2
+        self.max_not_ready_cnt = 3
         self.mutex = False
         self.cnt = 0
         self.store_down = False
+        self.service = ServiceUrls()
         self.res = None
 
 
@@ -51,9 +52,33 @@ class ServiceUrls:
         self.BILLING_URL = os.environ['BILLING_SERVICE_SERVICE_HOST'] + ':' + os.environ['BILLING_SERVICE_SERVICE_PORT']
         self.ORDER_URL = os.environ['ORDER_SERVICE_SERVICE_HOST'] + ':' + os.environ['ORDER_SERVICE_SERVICE_PORT']
         self.PRODUCT_URL = os.environ['PRODUCT_SERVICE_SERVICE_HOST'] + ':' + os.environ['PRODUCT_SERVICE_SERVICE_PORT']
+        self.LOGLEVEL = os.environ['LOGLEVEL']
+        if self.LOGLEVEL is None:
+            self.LOGLEVEL = 'WARNING'
         self.urls = [self.INVENTORY_URL, self.CUSTOMER_URL, self.BILLING_URL, self.ORDER_URL, self.PRODUCT_URL]
         self.names = ['inventory', 'customer', 'billing', 'order', 'product', 'crm']
 
+
+def restart_services(_class: ChkClass):
+    for u in _class.service.urls:
+        try:
+            url = 'http://' + u + '/restart'
+            r = requests.get(url=url)
+            s = 'RESTART %s    %s' % (url, r.status_code)
+            log_info(s)
+        except Exception as e:
+            log_error('restart_services  %s   ERROR: %s' % (url, e))
+
+
+def redis_ready(redis, keys=None, ret_val=1, msg='?????????????'):
+    try:
+        j = ',' + PREFIX
+        res = redis.exists(PREFIX + j.join(keys))
+        return int(res) == ret_val
+    except Exception as e:
+        s = '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! redis_ready REDIS NOT READY  %s   %s' % (str(e), msg)
+        log_error(s)
+        return False
 
 def services_ready(_class):
     """
@@ -63,10 +88,9 @@ def services_ready(_class):
     if _class.mutex is True:
         return ret
     _class.mutex = True
-    service_urls = ServiceUrls()
     try:
         ret = ''
-        for u in service_urls.urls:
+        for u in _class.service.urls:
             url = 'http://' + u + '/ready'
 
             r = requests.get(url=url)
@@ -81,22 +105,21 @@ def services_ready(_class):
         _class.mutex = False
         return ret
 
+def services_chk(_class: ChkClass, ret=None):
+    if ret is None:
+        ret = services_ready(_class)
+    if ret is not None:
+        if ret == '':
+            _class.not_ready_cnt = 0
+            _class.not_ready = False
+        else:
+            _class.not_ready_cnt += 1
+            if _class.not_ready_cnt > _class.max_not_ready_cnt:
+                _class.not_ready = True
+        _class.not_ready_msg = ret
 
-def restart_services():
-    service_urls = ServiceUrls()
-    for u in service_urls.urls:
-        url = 'http://' + u + '/restart'
-        r = requests.get(url=url)
-        s = 'RESTART %s    %s' % (url, r.status_code)
-        log_info(s)
-
-
-def redis_ready(redis, keys=None, ret_val=1, msg='?????????????'):
-    try:
-        j = ',' + PREFIX
-        res = redis.exists(PREFIX + j.join(keys))
-        return int(res) == ret_val
-    except Exception as e:
-        s = '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! redis_ready REDIS NOT READY  %s   %s' % (str(e), msg)
-        log_error(s)
-        return False
+    if _class.not_ready_cnt > _class.max_not_ready_cnt:
+        log_info('!!!!!!!!!!!!!!!!! RESTARTING SERVICES !!!!!!!!!!!!!!!!!!!!!!!!')
+        restart_services(_class)
+        _class.not_ready_cnt = 0
+        _class.not_ready = ''

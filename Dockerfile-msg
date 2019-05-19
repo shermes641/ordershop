@@ -21,6 +21,7 @@ COPY common ./
 WORKDIR /app
 
 ENV FLASK_ENV development
+ENV LOGLEVEL DEBUG
 ENV FLASK_APP /app/msg_service/msg_service.py
 ENV PYTHONPATH /app
 
