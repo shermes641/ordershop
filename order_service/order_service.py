@@ -1,12 +1,10 @@
 import json
 import logging
 import uuid
-from datetime import timedelta
 
 import requests
 from flask import Flask
 from flask import request, abort
-from timeloop import Timeloop
 
 from common.service_base import ServiceBase
 from common.utils import check_rsp_code, ChkClass
@@ -17,7 +15,7 @@ class OrderService(ServiceBase):
     def __init__(self):
         self.chk_class = ChkClass('order')
         self.store = EventStore(self.chk_class.name)
-        self.init_store(self.chk_class, self.store)
+        super().__init__(self.chk_class, self.store)
 
     @staticmethod
     def create_order(_product_ids, _customer_id):
@@ -37,19 +35,10 @@ class OrderService(ServiceBase):
 
 ords = OrderService()
 
-tl = Timeloop()
-
-
-@tl.job(interval=timedelta(seconds=5))
-def rc():
-    ords.redis_chk(ords.chk_class, ords.store)
-
-
-tl.start()
-
 app = Flask(__name__)
 log = logging.getLogger('werkzeug')
 log.setLevel(ords.chk_class.service.LOGLEVEL)
+
 
 @app.route('/orders', methods=['GET'])
 @app.route('/order/<order_id>', methods=['GET'])
@@ -62,11 +51,12 @@ def get(order_id=None):
             abort(500)
         else:
             return json.dumps(True)
-    elif 'ready' in request.path:
-        if ords.chk_redis_store_bad(ords.chk_class, ords.store):
-            abort(503)
-        else:
-            return json.dumps(True)
+
+    if ords.service_error():
+        abort(503)
+
+    if 'ready' in request.path:
+        return json.dumps(True)
     elif 'restart' in request.path:
         ords.chk_class.restart = True
         return json.dumps(True)

@@ -1,11 +1,9 @@
 import json
 import logging
-from datetime import timedelta
 
 import requests
 from flask import Flask
 from flask import request, abort
-from timeloop import Timeloop
 
 from common.service_base import ServiceBase
 from common.utils import log_error, log_info, ChkClass
@@ -16,7 +14,7 @@ class CrmService(ServiceBase):
     def __init__(self):
         self.chk_class = ChkClass('crm')
         self.store = EventStore(self.chk_class.name)
-        self.init_store(self.chk_class, self.store)
+        super().__init__(self.chk_class, self.store)
 
     @staticmethod
     def customer_created(item):
@@ -85,19 +83,10 @@ class CrmService(ServiceBase):
 
 crm = CrmService()
 
-tl = Timeloop()
-
-
-@tl.job(interval=timedelta(seconds=5))
-def rc():
-    crm.redis_chk(crm.chk_class, crm.store)
-
-
-tl.start()
-
 app = Flask(__name__)
 log = logging.getLogger('werkzeug')
 log.setLevel(crm.chk_class.service.LOGLEVEL)
+
 
 @app.route('/health', methods=['GET'])
 @app.route('/ready', methods=['GET'])
@@ -108,13 +97,14 @@ def get():
             abort(500)
         else:
             return json.dumps(True)
-    elif 'ready' in request.path:
-        if crm.chk_redis_store_bad(crm.chk_class, crm.store):
-            abort(503)
-        else:
-            return json.dumps(True)
+
+    if crm.service_error():
+        abort(503)
+
+    if 'ready' in request.path:
+        return json.dumps(True)
     elif 'restart' in request.path:
         crm.chk_class.restart = True
         return json.dumps(True)
     else:
-        return json.dumps(False)
+        return json.dumps(True)

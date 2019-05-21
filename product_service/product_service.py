@@ -1,11 +1,9 @@
 import json
 import logging
 import uuid
-from datetime import timedelta
 
 from flask import Flask
 from flask import request, abort
-from timeloop import Timeloop
 
 from common.service_base import ServiceBase
 from common.utils import ChkClass
@@ -16,7 +14,7 @@ class ProductService(ServiceBase):
     def __init__(self):
         self.chk_class = ChkClass('product')
         self.store = EventStore(self.chk_class.name)
-        self.init_store(self.chk_class, self.store)
+        super().__init__(self.chk_class, self.store)
 
     @staticmethod
     def create_product(_name, _price):
@@ -36,15 +34,6 @@ class ProductService(ServiceBase):
 
 prods = ProductService()
 
-tl = Timeloop()
-
-
-@tl.job(interval=timedelta(seconds=5))
-def rc():
-    prods.redis_chk(prods.chk_class, prods.store)
-
-
-tl.start()
 
 app = Flask(__name__)
 log = logging.getLogger('werkzeug')
@@ -62,11 +51,12 @@ def get(product_id=None):
             abort(500)
         else:
             return json.dumps(True)
-    elif 'ready' in request.path:
-        if prods.chk_redis_store_bad(prods.chk_class, prods.store):
-            abort(503)
-        else:
-            return json.dumps(True)
+
+    if prods.service_error():
+        abort(503)
+
+    if 'ready' in request.path:
+        return json.dumps(True)
     elif 'restart' in request.path:
         prods.chk_class.restart = True
         return json.dumps(True)
@@ -83,6 +73,9 @@ def get(product_id=None):
 @app.route('/product', methods=['POST'])
 @app.route('/products', methods=['POST'])
 def post():
+    if prods.service_error():
+        abort(503)
+
     values = request.get_json()
     if not isinstance(values, list):
         values = [values]
@@ -104,6 +97,9 @@ def post():
 
 @app.route('/product/<product_id>', methods=['PUT'])
 def put(product_id):
+    if prods.service_error():
+        abort(503)
+
     value = request.get_json()
     try:
         product = prods.create_product(value['name'], value['price'])
@@ -120,6 +116,9 @@ def put(product_id):
 
 @app.route('/product/<product_id>', methods=['DELETE'])
 def delete(product_id):
+    if prods.service_error():
+        abort(503)
+
     product = prods.store.find_one('product', product_id)
     if product:
 

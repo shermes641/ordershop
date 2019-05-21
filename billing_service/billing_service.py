@@ -2,12 +2,10 @@ import json
 import logging
 import time
 import uuid
-from datetime import timedelta
 
 import requests
 from flask import Flask
 from flask import request, abort
-from timeloop import Timeloop
 
 from common.service_base import ServiceBase
 from common.utils import log_error, log_info, ChkClass
@@ -18,7 +16,7 @@ class BillingService(ServiceBase):
     def __init__(self):
         self.chk_class = ChkClass('billing')
         self.store = EventStore(self.chk_class.name)
-        self.init_store(self.chk_class, self.store)
+        super().__init__(self.chk_class, self.store)
 
     @staticmethod
     def create_billing(_order_id):
@@ -84,16 +82,6 @@ class BillingService(ServiceBase):
 
 bs = BillingService()
 
-tl = Timeloop()
-
-
-@tl.job(interval=timedelta(seconds=5))
-def rc():
-    bs.redis_chk(bs.chk_class, bs.store)
-
-
-tl.start()
-
 app = Flask(__name__)
 log = logging.getLogger('werkzeug')
 log.setLevel(bs.chk_class.service.LOGLEVEL)
@@ -108,13 +96,13 @@ def get(billing_id=None):
     if 'health' in request.path:
         if bs.chk_class.restart:
             abort(500)
-        else:
-            return json.dumps(True)
-    elif 'ready' in request.path:
-        if bs.chk_redis_store_bad(bs.chk_class, bs.store):
-            abort(503)
-        else:
-            return json.dumps(True)
+        return json.dumps(True)
+
+    if bs.service_error():
+        abort(503)
+
+    if 'ready' in request.path:
+        return json.dumps(True)
     elif 'restart' in request.path:
         bs.chk_class.restart = True
         return json.dumps(True)
@@ -122,7 +110,6 @@ def get(billing_id=None):
         billing = bs.store.find_one('billing', billing_id)
         if not billing:
             raise ValueError("could not find billing")
-
         return json.dumps(billing) if billing else json.dumps(False)
     else:
         return json.dumps([item for item in bs.store.find_all('billing')])
@@ -131,6 +118,9 @@ def get(billing_id=None):
 @app.route('/billing', methods=['POST'])
 @app.route('/billings', methods=['POST'])
 def post():
+    if bs.service_error():
+        abort(503)
+
     values = request.get_json()
     if not isinstance(values, list):
         values = [values]
@@ -152,6 +142,9 @@ def post():
 
 @app.route('/billing/<billing_id>', methods=['PUT'])
 def put(billing_id):
+    if bs.service_error():
+        abort(503)
+
     value = request.get_json()
     try:
         billing = bs.create_billing(value['order_id'])
@@ -168,9 +161,11 @@ def put(billing_id):
 
 @app.route('/billing/<billing_id>', methods=['DELETE'])
 def delete(billing_id):
+    if bs.service_error():
+        abort(503)
+
     billing = bs.store.find_one('billing', billing_id)
     if billing:
-
         # trigger event
         bs.store.publish('billing', 'deleted', **billing)
 

@@ -292,6 +292,8 @@ Add dashboard
     kubectl -n kube-system get secret
     kubectl describe secret cluster-admin-dashboard-sa-token-nzvph
 
+        https://www.makeuseof.com/tag/install-pip-for-python/  gp.py    
+
 PASTE TOKEN in dashboard signin
     
     eyJhbGciOiJSUzI1NiIsImtpZCI6IiJ9.eyJpc3MiOiJrdWJlcm5ldGVzL3NlcnZpY2VhY2NvdW50Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9uYW1lc3BhY2UiOiJkZWZhdWx0Iiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZWNyZXQubmFtZSI6ImNsdXN0ZXItYWRtaW4tZGFzaGJvYXJkLXNhLXRva2VuLW56dnBoIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQubmFtZSI6ImNsdXN0ZXItYWRtaW4tZGFzaGJvYXJkLXNhIiwia3ViZXJuZXRlcy5pby9zZXJ2aWNlYWNjb3VudC9zZXJ2aWNlLWFjY291bnQudWlkIjoiNGU2YTFjNTMtNjQ4ZC0xMWU5LWI5NzAtMDAxNTVkZjYxNTA5Iiwic3ViIjoic3lzdGVtOnNlcnZpY2VhY2NvdW50OmRlZmF1bHQ6Y2x1c3Rlci1hZG1pbi1kYXNoYm9hcmQtc2EifQ.tELK0FvNDJdpUZBkhgR9PyAaJOb432K3TSpVvNUI4K1yCmmhGAASPS2yH1RFoPvl5ik0doqLD4C0ziy7WeeW5OhxsoUeY5tlt6X_pl2XD6Gl6Rj7PszsCAi75UriWvin5PDCuU7yzNQ3WZy-4hAuTGYi8mcDxmFRDYsGclLv3hONBHhhFDOE9Gy3wDo411V8igHTb_dR2-WkTVbl48w9cJPPF-uw29AgpGcpEaSOsL1ohOr5UiugJFOZrpHdYl0t7zegwf4DKy4HbJagMpVc1ntYCEM1HM1Nqkd1_vTDyXyM0Tv_j_HPDRQK_P55kAsrh5F_oJSin18XjLPSU5iSbw
@@ -315,9 +317,8 @@ helm --init worked. I was missing removing the service previously.
 
     docker-compose build   # docker-compose build --no-cache    to build everything
     docker images          # get the images ordershop_*_*
-    # update the push.bat file with the IMAGE IDs
-    push.bat              # push to the local repo
-    kubectl apply -f .    # apply to cluster --- you may need to delete pods, services, etc before applying
+    docker-compose push    # push to the local repo
+    kubectl apply -f .     # apply to cluster --- you may need to delete pods, services, etc before applying
     
 In one console:
    
@@ -345,6 +346,8 @@ kubectl expose deployment redis --type=LoadBalancer --name=redis
 
 kubectl expose deployment gateway-api --type=LoadBalancer --name=gateway-api-service --port=4444
 
+
+kubectl expose deployment hit-counter-app --type=LoadBalancer --name=redis-cluster-test-service --port=5555
 
 
 
@@ -507,4 +510,93 @@ ordershop_msg-service                                            latest         
 
 
 
+
+
+
+
+
+
+https://rancher.com/blog/2019/deploying-redis-cluster/
+
+
+
+# does not work on windows 
+kubectl exec -it redis-cluster-0 -- redis-cli --cluster create --cluster-replicas 1 $(kubectl get pods -l app=redis-cluster -o jsonpath='{range.items[*]}{.status.podIP}:6379 ')
+
+kubectl get pods -l app=redis-cluster -o  jsonpath={range.items[*]}{.status.podIP}:6379'
+10.1.10.215:6379'10.1.10.216:6379'10.1.10.217:6379'10.1.10.218:6379'10.1.10.219:6379'10.1.10.220:6379'
+kubectl exec -it redis-cluster-0 -- redis-cli --cluster create --cluster-replicas 1 10.1.11.29:6379 10.1.11.30:6379 10.1.11.31:6379 10.1.11.32:6379 10.1.11.33:6379 10.1.11.34:6379
+
+#replace the ' with space
+kubectl exec -it redis-cluster-0 -- redis-cli --cluster create --cluster-replicas 1 10.1.10.215:6379 10.1.10.216:6379 10.1.10.217:6379 10.1.10.218:6379 10.1.10.219:6379 10.1.10.220:6379
+
+
+
+>>> Performing hash slots allocation on 6 nodes...
+Master[0] -> Slots 0 - 5460
+Master[1] -> Slots 5461 - 10922
+Master[2] -> Slots 10923 - 16383
+Adding replica 10.1.10.219:6379 to 10.1.10.215:6379
+Adding replica 10.1.10.220:6379 to 10.1.10.216:6379
+Adding replica 10.1.10.218:6379 to 10.1.10.217:6379
+M: ef253c4f4d937daf18128b7304d0746105fbaf79 10.1.10.215:6379
+   slots:[0-5460] (5461 slots) master
+M: c3578132ba668fec42e210f20bafb24ebe26b39f 10.1.10.216:6379
+   slots:[5461-10922] (5462 slots) master
+M: 23b3e0d09c52e5ade25fd82a1cea258f21e0cf5c 10.1.10.217:6379
+   slots:[10923-16383] (5461 slots) master
+S: 75577c7f05e48d59ee23d693a21bfaa9cc6b6d99 10.1.10.218:6379
+   replicates 23b3e0d09c52e5ade25fd82a1cea258f21e0cf5c
+S: 28b0ec971a329b4a8671dddd020f4552b272e663 10.1.10.219:6379
+   replicates ef253c4f4d937daf18128b7304d0746105fbaf79
+S: da5fc36eade789c540a8ebc08ca71887d6579eb7 10.1.10.220:6379
+   replicates c3578132ba668fec42e210f20bafb24ebe26b39f
+Can I set the above configuration? (type 'yes' to accept): yes
+>>> Nodes configuration updated
+>>> Assign a different config epoch to each node
+>>> Sending CLUSTER MEET messages to join the cluster
+Waiting for the cluster to join
+.....
+>>> Performing Cluster Check (using node 10.1.10.215:6379)
+M: ef253c4f4d937daf18128b7304d0746105fbaf79 10.1.10.215:6379
+   slots:[0-5460] (5461 slots) master
+   1 additional replica(s)
+M: c3578132ba668fec42e210f20bafb24ebe26b39f 10.1.10.216:6379
+   slots:[5461-10922] (5462 slots) master
+   1 additional replica(s)
+S: 75577c7f05e48d59ee23d693a21bfaa9cc6b6d99 10.1.10.218:6379
+   slots: (0 slots) slave
+   replicates 23b3e0d09c52e5ade25fd82a1cea258f21e0cf5c
+S: 28b0ec971a329b4a8671dddd020f4552b272e663 10.1.10.219:6379
+   slots: (0 slots) slave
+   replicates ef253c4f4d937daf18128b7304d0746105fbaf79
+M: 23b3e0d09c52e5ade25fd82a1cea258f21e0cf5c 10.1.10.217:6379
+   slots:[10923-16383] (5461 slots) master
+   1 additional replica(s)
+S: da5fc36eade789c540a8ebc08ca71887d6579eb7 10.1.10.220:6379
+   slots: (0 slots) slave
+   replicates c3578132ba668fec42e210f20bafb24ebe26b39f
+[OK] All nodes agree about slots configuration.
+>>> Check for open slots...
+>>> Check slots coverage...
+[OK] All 16384 slots covered.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-cluster
+data:
+  update-node.sh: |
+    #!/bin/sh
+    REDIS_NODES="/data/nodes.conf"
+    sed -i -e "/myself/ s/[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}\.[0-9]\{1,3\}/${POD_IP}/" ${REDIS_NODES}
+    exec "$@"
+  redis.conf: |+
+    cluster-enabled yes
+    cluster-require-full-coverage no
+    cluster-node-timeout 15000
+    cluster-config-file /data/nodes.conf
+    cluster-migration-barrier 1
+    appendonly yes
+    protected-mode no
 

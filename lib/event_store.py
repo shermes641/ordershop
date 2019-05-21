@@ -6,7 +6,7 @@ import uuid
 
 from redis import StrictRedis
 
-from common.utils import redis_ready, log_info, MAX_CONNECT_TRIES, log_error, PREFIX
+from common.utils import log_info, log_error, PREFIX
 from lib.domain_model import DomainModel
 
 
@@ -34,6 +34,7 @@ class EventStore(object):
         key = 'events:{{{0}}}_{1}'.format(_topic, _action)
         entry_id = '{0:.6f}'.format(time.time()).replace('.', '-')
 
+        # noinspection PyUnresolvedReferences
         return self.redis.xadd(key, {
             'event_id': str(uuid.uuid4()),
             'entity': json.dumps(_entity)
@@ -235,34 +236,30 @@ class Subscriber(threading.Thread):
     def __str__(self):
         return "Subscriber: running is %s, key is %s , exception is %s" % (self._running, self.key, self.exception)
 
+    def store_guard(self):
+        ttl = self.redis.pttl(PREFIX + self.name)
+        if ttl < 2500:
+            if ttl == -2:
+                self.redis.psetex(PREFIX + self.name, 5000, PREFIX + self.name)
+                log_info('AAAAAAAAAAAAAAAAAA PSETEX 5000')
+            else:
+                res = self.redis.pexpire(PREFIX + self.name, 5000)
+                log_info('BBBBBBBBBBBBBBBBBB PEXPIRE 5000 %s %s' % (ttl, res))
+
     def run(self):
         """
         Poll the event stream and call each handler with each entry returned.
         """
         if self._running:
-            self.redis.psetex(self.name, 2000, self.name)
             return
-        else:
-            #######################self.redis.psetex(self.name, 3000, self.name)
-            cnt = 0
-            """
-            while not redis_ready(self.redis, self.name, 1,'Subcriber thread ' + self.name):
-                cnt += 1
-                if cnt < MAX_CONNECT_TRIES:
-                    time.sleep(1)
-                else:
-                    log_error('STORE THREAD RUN CONNECT ERROR cnt: %s  %s' % (self.exception, self.name))
-                    self.exception += 1
-                    return
-            """
+        self.store_guard()
         last_id = '$'
         self._running = True
         try:
             while self.subscribed:
-                self.redis.psetex(PREFIX + self.name, 2000, PREFIX + self.name)
+                self.store_guard()
                 items = self.redis.xread({self.key: last_id}, block=1000) or []
                 for item in items:
-                    self.redis.psetex(PREFIX + self.name, 2000, PREFIX + self.name)
                     for handler in self.handlers:
                         handler(item)
                     last_id = item[1][0][0]

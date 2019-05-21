@@ -1,11 +1,9 @@
 import json
 import logging
 import uuid
-from datetime import timedelta
 
 from flask import Flask
 from flask import request, abort
-from timeloop import Timeloop
 
 from common.service_base import ServiceBase
 from common.utils import ChkClass
@@ -16,7 +14,7 @@ class CustomerService(ServiceBase):
     def __init__(self):
         self.chk_class = ChkClass('customer')
         self.store = EventStore(self.chk_class.name)
-        self.init_store(self.chk_class, self.store)
+        super().__init__(self.chk_class, self.store)
 
 
 def create_customer(_name, _email):
@@ -36,19 +34,10 @@ def create_customer(_name, _email):
 
 cs = CustomerService()
 
-tl = Timeloop()
-
-
-@tl.job(interval=timedelta(seconds=5))
-def rc():
-    cs.redis_chk(cs.chk_class, cs.store)
-
-
-tl.start()
-
 app = Flask(__name__)
 log = logging.getLogger('werkzeug')
 log.setLevel(cs.chk_class.service.LOGLEVEL)
+
 
 @app.route('/customers', methods=['GET'])
 @app.route('/customer/<customer_id>', methods=['GET'])
@@ -56,16 +45,16 @@ log.setLevel(cs.chk_class.service.LOGLEVEL)
 @app.route('/ready', methods=['GET'])
 @app.route('/restart', methods=['GET'])
 def get(customer_id=None):
+    if cs.service_error():
+        abort(503)
+
     if 'health' in request.path:
         if cs.chk_class.restart:
             abort(500)
         else:
             return json.dumps(True)
     elif 'ready' in request.path:
-        if cs.chk_redis_store_bad(cs.chk_class, cs.store):
-            abort(503)
-        else:
-            return json.dumps(True)
+        return json.dumps(True)
     elif 'restart' in request.path:
         cs.chk_class.restart = True
         return json.dumps(True)

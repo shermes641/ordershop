@@ -4,10 +4,14 @@ import random
 import string
 import unittest
 import urllib.request
+from time import sleep
 
 import redis
+PREFIX = '_srv'
 
 BASE_URL = 'http://localhost:5000'
+
+TIMEOUT_SECS = 5
 
 
 def http_cmd_req(_url, _data=None, _method='POST'):
@@ -26,9 +30,10 @@ def http_cmd_req(_url, _data=None, _method='POST'):
             'Content-Length': len(data)
         }
         req = urllib.request.Request(_url, data=data, headers=headers, method=_method)
+        # req = requests.request(method=_method, url=_url, data=data, headers=headers,timeout=(1, 1))
     else:
         req = urllib.request.Request(_url, method=_method)
-    return urllib.request.urlopen(req)
+    return urllib.request.urlopen(req, timeout=TIMEOUT_SECS)
 
 
 def check_rsp(_rsp):
@@ -134,6 +139,11 @@ class OrderShopTestCase(unittest.TestCase):
     Test Case class.
     """
 
+    def run(self, result=None):
+        """ Stop after first error """
+        if not result.errors:
+            super(OrderShopTestCase, self).run(result)
+
     def __init__(self, method_name='runTest'):
         super(OrderShopTestCase, self).__init__(method_name)
 
@@ -141,16 +151,20 @@ class OrderShopTestCase(unittest.TestCase):
     def setUpClass(cls):
         # clear state
         r = redis.StrictRedis(decode_responses=True, port=6379)
-        r.flushdb()
+
+        ks = r.keys('*')
+        for k in ks:
+            if 'powerhive' not in k:
+                r.delete(k)
 
     def test_1_create_customers(self):
         # create customers
         customers = create_customers(10)
         rsp = http_cmd_req('{}/customers'.format(BASE_URL), customers)
         check_rsp(rsp)
-
+        sleep(0.01)
         # check result
-        rsp = urllib.request.urlopen('{}/customers'.format(BASE_URL))
+        rsp = urllib.request.urlopen('{}/customers'.format(BASE_URL), timeout=TIMEOUT_SECS)
         rsp = check_rsp(rsp)
         self.assertEqual(len(customers), len(json.loads(rsp)))
 
@@ -159,15 +173,15 @@ class OrderShopTestCase(unittest.TestCase):
         products = create_products(10)
         rsp = http_cmd_req('{}/products'.format(BASE_URL), products)
         check_rsp(rsp)
-
+        sleep(0.01)
         # check result
-        rsp = urllib.request.urlopen('{}/products'.format(BASE_URL))
+        rsp = urllib.request.urlopen('{}/products'.format(BASE_URL), timeout=TIMEOUT_SECS)
         rsp = check_rsp(rsp)
         self.assertEqual(len(products), len(json.loads(rsp)))
 
     def test_3_create_inventory(self):
         # load products
-        rsp = urllib.request.urlopen('{}/products'.format(BASE_URL))
+        rsp = urllib.request.urlopen('{}/products'.format(BASE_URL), timeout=TIMEOUT_SECS)
         rsp = check_rsp(rsp)
         products = json.loads(rsp)
 
@@ -175,20 +189,20 @@ class OrderShopTestCase(unittest.TestCase):
         inventory = create_inventory([product['id'] for product in products], 100)
         rsp = http_cmd_req('{}/inventory'.format(BASE_URL), inventory)
         check_rsp(rsp)
-
+        sleep(0.01)
         # check result
-        rsp = urllib.request.urlopen('{}/inventory'.format(BASE_URL))
+        rsp = urllib.request.urlopen('{}/inventory'.format(BASE_URL), timeout=TIMEOUT_SECS)
         rsp = check_rsp(rsp)
         self.assertEqual(len(inventory), len(json.loads(rsp)))
 
     def test_4_create_orders(self):
         # load customers
-        rsp = urllib.request.urlopen('{}/customers'.format(BASE_URL))
+        rsp = urllib.request.urlopen('{}/customers'.format(BASE_URL), timeout=TIMEOUT_SECS)
         rsp = check_rsp(rsp)
         customers = json.loads(rsp)
 
         # load products
-        rsp = urllib.request.urlopen('{}/products'.format(BASE_URL))
+        rsp = urllib.request.urlopen('{}/products'.format(BASE_URL), timeout=TIMEOUT_SECS)
         rsp = check_rsp(rsp)
         products = json.loads(rsp)
 
@@ -199,20 +213,20 @@ class OrderShopTestCase(unittest.TestCase):
             rsp = http_cmd_req('{}/orders'.format(BASE_URL), order)
             check_rsp(rsp)
             ordered += 1
-
+        sleep(0.01)
         # check result
-        rsp = urllib.request.urlopen('{}/orders'.format(BASE_URL))
+        rsp = urllib.request.urlopen('{}/orders'.format(BASE_URL), timeout=TIMEOUT_SECS)
         rsp = check_rsp(rsp)
         self.assertEqual(ordered, len(json.loads(rsp)))
 
     def test_5_update_second_order(self):
         # load orders
-        rsp = urllib.request.urlopen('{}/orders'.format(BASE_URL))
+        rsp = urllib.request.urlopen('{}/orders'.format(BASE_URL), timeout=TIMEOUT_SECS)
         rsp = check_rsp(rsp)
         orders = json.loads(rsp)
 
         # load products
-        rsp = urllib.request.urlopen('{}/products'.format(BASE_URL))
+        rsp = urllib.request.urlopen('{}/products'.format(BASE_URL), timeout=TIMEOUT_SECS)
         rsp = check_rsp(rsp)
         products = json.loads(rsp)
 
@@ -220,9 +234,9 @@ class OrderShopTestCase(unittest.TestCase):
         orders[1]['product_ids'][0] = get_any_id(products, orders[1]['product_ids'][0])
         rsp = http_cmd_req('{}/order/{}'.format(BASE_URL, orders[1]['id']), orders[1], 'PUT')
         check_rsp(rsp)
-
+        sleep(0.01)
         # check result
-        rsp = urllib.request.urlopen('{}/order/{}'.format(BASE_URL, orders[1]['id']))
+        rsp = urllib.request.urlopen('{}/order/{}'.format(BASE_URL, orders[1]['id']), timeout=TIMEOUT_SECS)
         rsp = check_rsp(rsp)
         order = json.loads(rsp)
         self.assertIsNotNone(order['product_ids'][0])
@@ -230,60 +244,59 @@ class OrderShopTestCase(unittest.TestCase):
 
     def test_6_delete_third_order(self):
         # load orders
-        rsp = urllib.request.urlopen('{}/orders'.format(BASE_URL))
+        rsp = urllib.request.urlopen('{}/orders'.format(BASE_URL), timeout=TIMEOUT_SECS)
         rsp = check_rsp(rsp)
         orders = json.loads(rsp)
 
         # delete third order
         rsp = http_cmd_req('{}/order/{}'.format(BASE_URL, orders[2]['id']), _method='DELETE')
         check_rsp(rsp)
-
+        sleep(0.01)
         # check result
-        rsp = urllib.request.urlopen('{}/order/{}'.format(BASE_URL, orders[2]['id']))
+        rsp = urllib.request.urlopen('{}/order/{}'.format(BASE_URL, orders[2]['id']), timeout=TIMEOUT_SECS)
         rsp = check_rsp(rsp)
         self.assertIsNone(json.loads(rsp))
 
     def test_7_delete_third_customer(self):
         # load customers
-        rsp = urllib.request.urlopen('{}/customers'.format(BASE_URL))
+        rsp = urllib.request.urlopen('{}/customers'.format(BASE_URL), timeout=TIMEOUT_SECS)
         rsp = check_rsp(rsp)
         customers = json.loads(rsp)
 
         # delete third customer
         rsp = http_cmd_req('{}/customer/{}'.format(BASE_URL, customers[2]['id']), _method='DELETE')
         check_rsp(rsp)
-
+        sleep(0.01)
         # check result
-        rsp = urllib.request.urlopen('{}/customer/{}'.format(BASE_URL, customers[2]['id']))
+        rsp = urllib.request.urlopen('{}/customer/{}'.format(BASE_URL, customers[2]['id']), timeout=TIMEOUT_SECS)
         rsp = check_rsp(rsp)
         self.assertIsNone(json.loads(rsp))
 
     def test_8_perform_billing(self):
         # load orders
-        rsp = urllib.request.urlopen('{}/orders'.format(BASE_URL))
+        rsp = urllib.request.urlopen('{}/orders'.format(BASE_URL), timeout=TIMEOUT_SECS)
         rsp = check_rsp(rsp)
         orders = json.loads(rsp)
 
         # perform billing
         rsp = http_cmd_req('{}/billing'.format(BASE_URL), {"order_id": orders[0]['id']})
         rsp = check_rsp(rsp)
-
+        sleep(0.01)
         # check result
         self.assertIsNotNone(len(json.loads(rsp)))
 
     def test_9_get_unbilled_orders(self):
         # load unbilled orders
-        rsp = urllib.request.urlopen('{}/orders/unbilled'.format(BASE_URL))
+        rsp = urllib.request.urlopen('{}/orders/unbilled'.format(BASE_URL), timeout=TIMEOUT_SECS)
         rsp = check_rsp(rsp)
         unbilled = json.loads(rsp)
-
+        sleep(0.01)
         # check result
         self.assertEqual(len(unbilled), 8)
 
-    """
     def test_Z_print_report(self):
         # load customers
-        rsp = urllib.request.urlopen('{}/report'.format(BASE_URL))
+        rsp = urllib.request.urlopen('{}/report'.format(BASE_URL), timeout=TIMEOUT_SECS)
         rsp = check_rsp(rsp)
 
         # print result
@@ -291,4 +304,3 @@ class OrderShopTestCase(unittest.TestCase):
 
         # check result
         self.assertIsNotNone(rsp)
-    """

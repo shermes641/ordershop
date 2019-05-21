@@ -32,7 +32,7 @@ spec:
                 - name: Host
                   value: KubernetesReadinessProbe
             initialDelaySeconds: 5
-            periodSeconds: 2
+            periodSeconds: 5
           livenessProbe:
             httpGet:
               path: /health
@@ -41,6 +41,6 @@ spec:
                 - name: Host
                   value: KubernetesLivenessProbe
             initialDelaySeconds: 5
-            periodSeconds: 5
+            periodSeconds: 8
       restartPolicy: Always
 status: {}

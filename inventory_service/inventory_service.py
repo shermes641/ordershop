@@ -1,10 +1,8 @@
 import json
 import uuid
-from datetime import timedelta
 
 from flask import Flask
 from flask import request, abort
-from timeloop import Timeloop
 
 from common.service_base import ServiceBase
 from common.utils import ChkClass
@@ -15,7 +13,7 @@ class InventoryService(ServiceBase):
     def __init__(self):
         self.chk_class = ChkClass('inventory')
         self.store = EventStore(self.chk_class.name)
-        self.init_store(self.chk_class, self.store)
+        super().__init__(self.chk_class, self.store)
 
     @staticmethod
     def create_inventory(_product_id, _amount):
@@ -35,16 +33,6 @@ class InventoryService(ServiceBase):
 
 invs = InventoryService()
 
-tl = Timeloop()
-
-
-@tl.job(interval=timedelta(seconds=5))
-def rc():
-    invs.redis_chk(invs.chk_class, invs.store)
-
-
-tl.start()
-
 app = Flask(__name__)
 
 
@@ -59,11 +47,11 @@ def get(inventory_id=None):
             abort(500)
         else:
             return json.dumps(True)
-    elif 'ready' in request.path:
-        if invs.chk_redis_store_bad(invs.chk_class, invs.store):
-            abort(503)
-        else:
-            return json.dumps(True)
+    if invs.service_error():
+        abort(503)
+
+    if 'ready' in request.path:
+        return json.dumps(True)
     elif 'restart' in request.path:
         invs.chk_class.restart = True
         return json.dumps(True)
@@ -79,6 +67,9 @@ def get(inventory_id=None):
 
 @app.route('/inventory', methods=['POST'])
 def post():
+    if invs.service_error():
+        abort(503)
+
     values = request.get_json()
     if not isinstance(values, list):
         values = [values]
@@ -100,6 +91,9 @@ def post():
 
 @app.route('/inventory/<inventory_id>', methods=['PUT'])
 def put(inventory_id):
+    if invs.service_error():
+        abort(503)
+
     value = request.get_json()
     try:
         inventory = invs.create_inventory(value['product_id'], value['amount'])
@@ -116,9 +110,11 @@ def put(inventory_id):
 
 @app.route('/inventory/<inventory_id>', methods=['DELETE'])
 def delete(inventory_id):
+    if invs.service_error():
+        abort(503)
+
     inventory = invs.store.find_one('inventory', inventory_id)
     if inventory:
-
         # trigger event
         invs.store.publish('inventory', 'deleted', **inventory)
 
@@ -130,13 +126,15 @@ def delete(inventory_id):
 @app.route('/incr/<product_id>', methods=['POST'])
 @app.route('/incr/<product_id>/<value>', methods=['POST'])
 def incr(product_id, value=None):
+    if invs.service_error():
+        abort(503)
+
     inventory = list(filter(lambda x: x['product_id'] == product_id, invs.store.find_all('inventory')))
     if not inventory:
         raise ValueError("could not find inventory")
 
     inventory = inventory[0]
     inventory['amount'] = int(inventory['amount']) - (value if value else 1)
-
     # trigger event
     invs.store.publish('inventory', 'updated', **inventory)
 
@@ -146,6 +144,9 @@ def incr(product_id, value=None):
 @app.route('/decr/<product_id>', methods=['POST'])
 @app.route('/decr/<product_id>/<value>', methods=['POST'])
 def decr(product_id, value=None):
+    if invs.service_error():
+        abort(503)
+
     inventory = list(filter(lambda x: x['product_id'] == product_id, invs.store.find_all('inventory')))
     if not inventory:
         raise ValueError("could not find inventory")
@@ -154,7 +155,6 @@ def decr(product_id, value=None):
     if int(inventory['amount']) - (value if value else 1) >= 0:
 
         inventory['amount'] = int(inventory['amount']) - (value if value else 1)
-
         # trigger event
         invs.store.publish('inventory', 'updated', **inventory)
 
@@ -165,6 +165,9 @@ def decr(product_id, value=None):
 
 @app.route('/decr_from_order', methods=['POST'])
 def decr_from_order():
+    if invs.service_error():
+        abort(503)
+
     values = request.get_json()
     if not isinstance(values, list):
         values = [values]

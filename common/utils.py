@@ -1,6 +1,5 @@
 import os
 import sys
-import traceback
 
 import requests
 
@@ -16,7 +15,7 @@ def log_info(_msg):
 
 def log_error(_err):
     print('ERROR: {}'.format(str(_err)))
-    traceback.print_exc()
+    #traceback.print_exc()
     sys.stderr.flush()
 
 
@@ -32,16 +31,16 @@ class ChkClass:
         self.name = name
         self.restart = False
         self.redis_cnt = 0
-        self.redis_down = False
         self.restart_cnt = 5
         self.not_ready = False
         self.not_ready_msg = ''
         self.not_ready_cnt = 0
-        self.max_not_ready_cnt = 3
+        self.max_not_ready_cnt = 4
         self.mutex = False
         self.cnt = 0
         self.store_down = False
         self.service = ServiceUrls()
+        self.start_timer = False
         self.res = None
 
 
@@ -60,6 +59,7 @@ class ServiceUrls:
 
 
 def restart_services(_class: ChkClass):
+    url = None
     for u in _class.service.urls:
         try:
             url = 'http://' + u + '/restart'
@@ -73,12 +73,15 @@ def restart_services(_class: ChkClass):
 def redis_ready(redis, keys=None, ret_val=1, msg='?????????????'):
     try:
         j = ',' + PREFIX
-        res = redis.exists(PREFIX + j.join(keys))
-        return int(res) == ret_val
+        res = redis.pttl(PREFIX + j.join(keys))
+        if 'GS' in msg:
+            log_info('######## redis_ready:  %s   %s  %s   %s' % (res, PREFIX + j.join(keys), ret_val, res > 0))
+        return res  # int(res) >= ret_val
     except Exception as e:
         s = '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! redis_ready REDIS NOT READY  %s   %s' % (str(e), msg)
         log_error(s)
         return False
+
 
 def services_ready(_class):
     """
@@ -90,30 +93,38 @@ def services_ready(_class):
     _class.mutex = True
     try:
         ret = ''
-        for u in _class.service.urls:
-            url = 'http://' + u + '/ready'
-
-            r = requests.get(url=url)
-            s = 'Ready %s    %s' % (url, r.status_code)
+        for i in range(len(_class.service.urls) - 1):
+            url = 'http://' + _class.service.urls[i] + '/ready'
+            name = _class.service.names[i]
+            r = requests.get(url=url, timeout=(1, 1))
             if r.status_code != 200:
-                ret = s
-                _class.mutex = False
+                ret += '%s   %s    %s, ' % (url, name, r.status_code)
+        _class.mutex = False
     except Exception as e:
-        ret = 'service_ready EXCEPTION: %s ' % str(e)
-        log_error(ret)
+        ret = 'service_ready EXCEPTION: %s ' % str(e)[0:70]
     finally:
         _class.mutex = False
+        """
+        if ret == '':
+            _class.store.redis.psetex(PREFIX + 'billing', 7000, PREFIX + 'billing')
+            _class.store.redis.psetex(PREFIX + 'customer', 7000, PREFIX + 'customer')
+            _class.store.redis.psetex(PREFIX + 'product', 7000, PREFIX + 'product')
+            _class.store.redis.psetex(PREFIX + 'inventory', 7000, PREFIX + 'inventory')
+            _class.store.redis.psetex(PREFIX + 'order', 7000, PREFIX + 'order')
+            _class.store.redis.psetex(PREFIX + 'crm', 7000, PREFIX + 'crm')
+        """
         return ret
 
-def services_chk(_class: ChkClass, ret=None):
-    if ret is None:
-        ret = services_ready(_class)
+
+def services_chk(_class: ChkClass, ):
+    ret = services_ready(_class)
     if ret is not None:
         if ret == '':
             _class.not_ready_cnt = 0
             _class.not_ready = False
         else:
             _class.not_ready_cnt += 1
+            log_info('ZZZZZZZZ!!!!!!!! services_chk %s !!!!!!!!ZZZZZZZZ' % ret)
             if _class.not_ready_cnt > _class.max_not_ready_cnt:
                 _class.not_ready = True
         _class.not_ready_msg = ret
