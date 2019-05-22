@@ -241,10 +241,8 @@ class Subscriber(threading.Thread):
         if ttl < 2500:
             if ttl == -2:
                 self.redis.psetex(PREFIX + self.name, 5000, PREFIX + self.name)
-                log_info('AAAAAAAAAAAAAAAAAA PSETEX 5000')
             else:
                 res = self.redis.pexpire(PREFIX + self.name, 5000)
-                log_info('BBBBBBBBBBBBBBBBBB PEXPIRE 5000 %s %s' % (ttl, res))
 
     def run(self):
         """

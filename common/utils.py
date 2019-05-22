@@ -30,15 +30,12 @@ class ChkClass:
     def __init__(self, name='undefined'):
         self.name = name
         self.restart = False
-        self.redis_cnt = 0
         self.restart_cnt = 5
-        self.not_ready = False
+        self.redis_cnt = 0
         self.not_ready_msg = ''
         self.not_ready_cnt = 0
         self.max_not_ready_cnt = 4
         self.mutex = False
-        self.cnt = 0
-        self.store_down = False
         self.service = ServiceUrls()
         self.start_timer = False
         self.res = None
@@ -51,7 +48,7 @@ class ServiceUrls:
         self.BILLING_URL = os.environ['BILLING_SERVICE_SERVICE_HOST'] + ':' + os.environ['BILLING_SERVICE_SERVICE_PORT']
         self.ORDER_URL = os.environ['ORDER_SERVICE_SERVICE_HOST'] + ':' + os.environ['ORDER_SERVICE_SERVICE_PORT']
         self.PRODUCT_URL = os.environ['PRODUCT_SERVICE_SERVICE_HOST'] + ':' + os.environ['PRODUCT_SERVICE_SERVICE_PORT']
-        self.LOGLEVEL = os.environ['LOGLEVEL']
+        self.LOGLEVEL = os.getenv('LOGLEVEL')
         if self.LOGLEVEL is None:
             self.LOGLEVEL = 'WARNING'
         self.urls = [self.INVENTORY_URL, self.CUSTOMER_URL, self.BILLING_URL, self.ORDER_URL, self.PRODUCT_URL]
@@ -74,8 +71,8 @@ def redis_ready(redis, keys=None, ret_val=1, msg='?????????????'):
     try:
         j = ',' + PREFIX
         res = redis.pttl(PREFIX + j.join(keys))
-        if 'GS' in msg:
-            log_info('######## redis_ready:  %s   %s  %s   %s' % (res, PREFIX + j.join(keys), ret_val, res > 0))
+        #if 'GS' in msg:
+        #    log_info('######## redis_ready:  %s   %s  %s   %s' % (res, PREFIX + j.join(keys), ret_val, res > 0))
         return res  # int(res) >= ret_val
     except Exception as e:
         s = '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! redis_ready REDIS NOT READY  %s   %s' % (str(e), msg)
@@ -93,7 +90,7 @@ def services_ready(_class):
     _class.mutex = True
     try:
         ret = ''
-        for i in range(len(_class.service.urls) - 1):
+        for i in range(len(_class.service.urls)):
             url = 'http://' + _class.service.urls[i] + '/ready'
             name = _class.service.names[i]
             r = requests.get(url=url, timeout=(1, 1))
@@ -121,16 +118,11 @@ def services_chk(_class: ChkClass, ):
     if ret is not None:
         if ret == '':
             _class.not_ready_cnt = 0
-            _class.not_ready = False
         else:
             _class.not_ready_cnt += 1
-            log_info('ZZZZZZZZ!!!!!!!! services_chk %s !!!!!!!!ZZZZZZZZ' % ret)
-            if _class.not_ready_cnt > _class.max_not_ready_cnt:
-                _class.not_ready = True
         _class.not_ready_msg = ret
 
     if _class.not_ready_cnt > _class.max_not_ready_cnt:
         log_info('!!!!!!!!!!!!!!!!! RESTARTING SERVICES !!!!!!!!!!!!!!!!!!!!!!!!')
         restart_services(_class)
         _class.not_ready_cnt = 0
-        _class.not_ready = ''

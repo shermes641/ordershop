@@ -1,5 +1,5 @@
 import json
-import logging
+import os
 import uuid
 
 import requests
@@ -12,10 +12,11 @@ from lib.event_store import EventStore
 
 
 class OrderService(ServiceBase):
-    def __init__(self):
+    def __init__(self, logger):
+        self.log = logger
         self.chk_class = ChkClass('order')
         self.store = EventStore(self.chk_class.name)
-        super().__init__(self.chk_class, self.store)
+        super().__init__(self.chk_class, self.store, self.log)
 
     @staticmethod
     def create_order(_product_ids, _customer_id):
@@ -33,12 +34,9 @@ class OrderService(ServiceBase):
         }
 
 
-ords = OrderService()
-
 app = Flask(__name__)
-log = logging.getLogger('werkzeug')
-log.setLevel(ords.chk_class.service.LOGLEVEL)
-
+app.logger.setLevel(os.getenv('LOGLEVEL'))
+ords = OrderService(app.logger)
 
 @app.route('/orders', methods=['GET'])
 @app.route('/order/<order_id>', methods=['GET'])

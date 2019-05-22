@@ -1,5 +1,5 @@
 import json
-import logging
+import os
 import time
 import uuid
 
@@ -8,15 +8,16 @@ from flask import Flask
 from flask import request, abort
 
 from common.service_base import ServiceBase
-from common.utils import log_error, log_info, ChkClass
+from common.utils import ChkClass
 from lib.event_store import EventStore
 
 
 class BillingService(ServiceBase):
-    def __init__(self):
+    def __init__(self, logger):
+        self.log = logger
         self.chk_class = ChkClass('billing')
         self.store = EventStore(self.chk_class.name)
-        super().__init__(self.chk_class, self.store)
+        super().__init__(self.chk_class, self.store, self.log)
 
     @staticmethod
     def create_billing(_order_id):
@@ -48,7 +49,7 @@ class BillingService(ServiceBase):
                 "msg": msg
             })
         except Exception as e:
-            log_error(e)
+            self.log.error(e)
 
     def billing_created(self, item):
         try:
@@ -67,25 +68,22 @@ class BillingService(ServiceBase):
                 "msg": msg
             })
         except Exception as e:
-            log_error(e)
+            self.log.error(e)
 
     def subscribe_to_domain_events(self):
         self.store.subscribe('order', 'created', self.order_created)
         self.store.subscribe('billing', 'created', self.billing_created)
-        log_info('subscribed to domain events')
+        self.log.debug('subscribed to domain events')
 
     def unsubscribe_from_domain_events(self):
         self.store.unsubscribe('order', 'created', self.order_created)
         self.store.unsubscribe('billing', 'created', self.billing_created)
-        log_info('unsubscribed from domain events')
+        self.log.debug('unsubscribed from domain events')
 
-
-bs = BillingService()
 
 app = Flask(__name__)
-log = logging.getLogger('werkzeug')
-log.setLevel(bs.chk_class.service.LOGLEVEL)
-
+app.logger.setLevel(os.getenv('LOGLEVEL'))
+bs = BillingService(app.logger)
 
 @app.route('/billings', methods=['GET'])
 @app.route('/billing/<billing_id>', methods=['GET'])

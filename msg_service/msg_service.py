@@ -1,12 +1,11 @@
 import json
-import logging
+import os
 
 from flask import Flask
 from flask import request
 
 app = Flask(__name__)
-log = logging.getLogger('werkzeug')
-log.setLevel('WARNING')
+app.logger.setLevel(os.getenv('LOGLEVEL'))
 
 @app.route('/email', methods=['POST'])
 def post():
@@ -14,5 +13,5 @@ def post():
     if not values['to'] or not values['msg']:
         raise ValueError("missing mandatory parameter 'to' and/or 'msg'")
 
-    app.logger.info('sent email with message "{}" to "{}"'.format(values['msg'], values['to']))
+    app.logger.debug('sent email with message "{}" to "{}"'.format(values['msg'], values['to']))
     return json.dumps(True)

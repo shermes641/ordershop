@@ -1,5 +1,5 @@
 import json
-import logging
+import os
 import uuid
 
 from flask import Flask
@@ -11,10 +11,11 @@ from lib.event_store import EventStore
 
 
 class ProductService(ServiceBase):
-    def __init__(self):
+    def __init__(self, logger):
+        self.log = logger
         self.chk_class = ChkClass('product')
         self.store = EventStore(self.chk_class.name)
-        super().__init__(self.chk_class, self.store)
+        super().__init__(self.chk_class, self.store, self.log)
 
     @staticmethod
     def create_product(_name, _price):
@@ -32,13 +33,9 @@ class ProductService(ServiceBase):
         }
 
 
-prods = ProductService()
-
-
 app = Flask(__name__)
-log = logging.getLogger('werkzeug')
-log.setLevel(prods.chk_class.service.LOGLEVEL)
-
+app.logger.setLevel(os.getenv('LOGLEVEL'))
+prods = ProductService(app.logger)
 
 @app.route('/products', methods=['GET'])
 @app.route('/product/<product_id>', methods=['GET'])

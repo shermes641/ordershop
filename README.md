@@ -80,56 +80,8 @@ There should be no failures
 
 2. Execute the client by `python -m unittest client/client.py`.   #or py -3  
 
-There should be no failures ..... but alas there are 4
-
-    ======================================================================
-    FAIL: test_5_update_second_order (client.client.OrderShopTestCase)
-    ----------------------------------------------------------------------
-    Traceback (most recent call last):
-      File "D:\_KUBE\ordershop\client\client.py", line 236, in test_5_update_second_order
-        self.assertEqual(orders[1]['product_ids'][0], order['product_ids'][0])
-    AssertionError: 'd81f86de-8f39-4655-86c4-7585172bd188' != 'b5976a36-2a87-4591-8463-bb0232800631'
-    - d81f86de-8f39-4655-86c4-7585172bd188
-    + b5976a36-2a87-4591-8463-bb0232800631
-    
-    
-    ======================================================================
-    FAIL: test_6_delete_third_order (client.client.OrderShopTestCase)
-    ----------------------------------------------------------------------
-    Traceback (most recent call last):
-      File "D:\_KUBE\ordershop\client\client.py", line 252, in test_6_delete_third_order
-        self.assertIsNone(json.loads(rsp))
-    AssertionError: {'id': 'c7d21a05-27be-4992-aac0-bffe8fe182e0', 'product_ids': ['e6559ddd-b8ac-4204-aae1-211ee85416e6', '377efd25-a624-4795-8cd6-8d8118b35c91', '753910ef-7356-4530-bfcf-4f13e0d14056', 'f5320e6c-4390-42dd-813b-073293ee283e', 'd81f86de-8f39-4655-86c4-7585172bd188', 'd81f86de-8f39-4655-86c4-7585172bd188', 'ef1a939d-c5a6-44c1-ac4f-a94840066fb7'], 'customer_id': '34ee3702-ce3b-4e34-82f3-ed2fa2f5862c'} is not None
-    
-    ======================================================================
-    FAIL: test_7_delete_third_customer (client.client.OrderShopTestCase)
-    ----------------------------------------------------------------------
-    Traceback (most recent call last):
-      File "D:\_KUBE\ordershop\client\client.py", line 268, in test_7_delete_third_customer
-        self.assertIsNone(json.loads(rsp))
-    AssertionError: {'id': '34ee3702-ce3b-4e34-82f3-ed2fa2f5862c', 'name': 'Nwuwmeinuc', 'email': 'nwuwmeinuc@server.com'} is not None
-    
-    ======================================================================
-    FAIL: test_9_get_unbilled_orders (client.client.OrderShopTestCase)
-    ----------------------------------------------------------------------
-    Traceback (most recent call last):
-      File "D:\_KUBE\ordershop\client\client.py", line 292, in test_9_get_unbilled_orders
-        self.assertEqual(len(unbilled), 8)
-    AssertionError: 9 != 8
-    
-    ----------------------------------------------------------------------
-    Ran 10 tests in 0.939s
-    
-    FAILED (failures=4)       
+There should be no failures 
       
- # PROBLEMS:
- 
- I have looked at this and I am baffled.
- In KUBERNETES can see the redis data exists and is persisted ie. POST works. 
- 
- But DELETE and PUT are not working.
- 
- It has to be something simple, but I have not found it.
     
       
 # NOTES:
@@ -316,9 +268,8 @@ helm --init worked. I was missing removing the service previously.
 ### Changes in source code --- Run from ordershop dir
 
     docker-compose build   # docker-compose build --no-cache    to build everything
-    docker images          # get the images ordershop_*_*
     docker-compose push    # push to the local repo
-    kubectl apply -f .     # apply to cluster --- you may need to delete pods, services, etc before applying
+    kubectl apply -f .     # apply to cluster --- you may need to delete pods, services, etc after applying to load new code
     
 In one console:
    

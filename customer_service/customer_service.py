@@ -1,5 +1,5 @@
 import json
-import logging
+import os
 import uuid
 
 from flask import Flask
@@ -11,10 +11,11 @@ from lib.event_store import EventStore
 
 
 class CustomerService(ServiceBase):
-    def __init__(self):
+    def __init__(self, logger):
+        self.log = logger
         self.chk_class = ChkClass('customer')
         self.store = EventStore(self.chk_class.name)
-        super().__init__(self.chk_class, self.store)
+        super().__init__(self.chk_class, self.store, self.log)
 
 
 def create_customer(_name, _email):
@@ -32,12 +33,9 @@ def create_customer(_name, _email):
     }
 
 
-cs = CustomerService()
-
 app = Flask(__name__)
-log = logging.getLogger('werkzeug')
-log.setLevel(cs.chk_class.service.LOGLEVEL)
-
+app.logger.setLevel(os.getenv('LOGLEVEL'))
+cs = CustomerService(app.logger)
 
 @app.route('/customers', methods=['GET'])
 @app.route('/customer/<customer_id>', methods=['GET'])

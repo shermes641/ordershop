@@ -1,20 +1,21 @@
 import json
-import logging
+import os
 
 import requests
 from flask import Flask
 from flask import request, abort
 
 from common.service_base import ServiceBase
-from common.utils import log_error, log_info, ChkClass
+from common.utils import ChkClass
 from lib.event_store import EventStore
 
 
 class CrmService(ServiceBase):
-    def __init__(self):
+    def __init__(self, logger):
+        self.log = logger
         self.chk_class = ChkClass('crm')
         self.store = EventStore(self.chk_class.name)
-        super().__init__(self.chk_class, self.store)
+        super().__init__(self.chk_class, self.store, self.log)
 
     @staticmethod
     def customer_created(item):
@@ -25,13 +26,12 @@ class CrmService(ServiceBase):
     Welcome to Ordershop.
     
     Cheers""".format(msg_data['name'])
-            log_info(msg)
             requests.post('http://msg-service:5000/email', json={
                 "to": msg_data['email'],
                 "msg": msg
             })
         except Exception as e:
-            log_error(e)
+            crm.log.error(e)
 
     @staticmethod
     def customer_deleted(item):
@@ -42,14 +42,12 @@ class CrmService(ServiceBase):
     Good bye, hope to see you soon again at Ordershop.
     
     Cheers""".format(msg_data['name'])
-            log_info(msg)
             requests.post('http://msg-service:5000/email', json={
                 "to": msg_data['email'],
                 "msg": msg
             })
         except Exception as e:
-            log_info('CRM DELETE EXCEPTION')
-            log_error(e)
+            crm.log.error('CRM DELETE EXCEPTION %s' % e)
 
     def order_created(self, item):
         try:
@@ -62,13 +60,12 @@ class CrmService(ServiceBase):
     {}
     
     Cheers""".format(customer['name'], len(products), ", ".join([product['name'] for product in products]))
-            log_info(msg)
             requests.post('http://msg-service:5000/email', json={
                 "to": customer['email'],
                 "msg": msg
             })
         except Exception as e:
-            log_error(e)
+            self.log.error(e)
 
     def subscribe_to_domain_events(self):
         self.store.subscribe('customer', 'created', self.customer_created)
@@ -81,11 +78,12 @@ class CrmService(ServiceBase):
         self.store.unsubscribe('order', 'created', self.order_created)
 
 
-crm = CrmService()
+
 
 app = Flask(__name__)
-log = logging.getLogger('werkzeug')
-log.setLevel(crm.chk_class.service.LOGLEVEL)
+app.logger.setLevel(os.getenv('LOGLEVEL'))
+crm = CrmService(app.logger)
+
 
 
 @app.route('/health', methods=['GET'])

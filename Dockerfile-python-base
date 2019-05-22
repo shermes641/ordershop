@@ -1,0 +1,22 @@
+FROM python:3.7-slim
+
+RUN pip install flask
+RUN pip install redis
+RUN pip install requests
+RUN pip install timeloop
+
+RUN mkdir -p /app/lib
+RUN mkdir -p /app/common
+
+WORKDIR /app/lib
+COPY lib ./
+
+WORKDIR /app/common
+COPY common ./
+
+WORKDIR /app
+
+ENV FLASK_ENV development
+ENV LOGLEVEL DEBUG
+ENV PYTHONPATH /app
+ENV PORT 5000

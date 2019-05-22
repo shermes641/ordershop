@@ -1,4 +1,5 @@
 import json
+import os
 import uuid
 
 from flask import Flask
@@ -10,10 +11,11 @@ from lib.event_store import EventStore
 
 
 class InventoryService(ServiceBase):
-    def __init__(self):
+    def __init__(self, logger):
+        self.log = logger
         self.chk_class = ChkClass('inventory')
         self.store = EventStore(self.chk_class.name)
-        super().__init__(self.chk_class, self.store)
+        super().__init__(self.chk_class, self.store, self.log)
 
     @staticmethod
     def create_inventory(_product_id, _amount):
@@ -31,10 +33,9 @@ class InventoryService(ServiceBase):
         }
 
 
-invs = InventoryService()
-
 app = Flask(__name__)
-
+app.logger.setLevel(os.getenv('LOGLEVEL'))
+invs = InventoryService(app.logger)
 
 @app.route('/inventory', methods=['GET'])
 @app.route('/inventory/<inventory_id>', methods=['GET'])

@@ -1,5 +1,5 @@
 import json
-import logging
+import os
 from datetime import timedelta
 
 import requests
@@ -8,15 +8,18 @@ from flask import request, abort
 from timeloop import Timeloop
 
 from common.service_base import ServiceBase
-from common.utils import check_rsp_code, log_info, ChkClass, ServiceUrls, services_chk, PREFIX
+from common.utils import check_rsp_code, ChkClass, ServiceUrls, services_chk, PREFIX
 from lib.event_store import EventStore
 
 
 class GatewayService(ServiceBase):
-    def __init__(self):
+    def __init__(self, logger):
+        self.log = logger
+        self.t1 = None
         self.chk_class = ChkClass('gateway')
         self.store = EventStore(self.chk_class.name)
-        super().__init__(self.chk_class, self.store)
+        super().__init__(self.chk_class, self.store, self.log)
+
 
     # noinspection PyMethodMayBeStatic
     def proxy_command_request(self, _base_url):
@@ -53,8 +56,7 @@ class GatewayService(ServiceBase):
             return check_rsp_code(rsp)
 
 
-gs = GatewayService()
-gs.store.redis.psetex(PREFIX + gs.chk_class.name, 10000, PREFIX + gs.chk_class.name)
+
 
 tl = Timeloop()
 
@@ -63,14 +65,19 @@ tl = Timeloop()
 def rc1():
     gs.chk_class.service = ServiceUrls()
     services_chk(gs.chk_class)
-    log_info('READY: ---%s---' % gs.chk_class.not_ready_msg)
+    gs.store.redis.expire(PREFIX + gs.chk_class.name, 10000)
+    gs.log.debug('READY: ---%s---' % gs.chk_class.not_ready_msg)
 
+
+app = Flask(__name__)
+app.logger.setLevel(os.getenv('LOGLEVEL'))
+gs = GatewayService(app.logger)
+gs.chk_class.service = ServiceUrls()
+gs.store.redis.psetex(PREFIX + gs.chk_class.name, 10000, PREFIX + gs.chk_class.name)
 
 tl.start()
 
-app = Flask(__name__)
-log = logging.getLogger('werkzeug')
-log.setLevel(gs.chk_class.service.LOGLEVEL)
+
 
 
 @app.route('/billings', methods=['GET'])
@@ -86,23 +93,18 @@ def billing_query(billing_id=None):
     """
     result = None
     if 'health' in request.path:
-        log_info('GS HHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH')
         if gs.chk_class.restart:
-            log_info('GS RRRRRRRRRRRRRRRRRRRR!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!')
-            log_info('GS RESTARTING')
+            gs.log.debug('GS RESTARTING')
             abort(502)
         else:
-            log_info('GS HHHHHHHHHHHHHH1111111111111111111111')
             return json.dumps(True)
 
     if gs.service_error(gs.chk_class.not_ready_cnt):
-        log_info('GS EEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEEE')
-        gs.store.redis.psetex(PREFIX + gs.chk_class.name, 5000, PREFIX + gs.chk_class.name)
+        gs.store.redis.psetex(PREFIX + gs.chk_class.name, 10000, PREFIX + gs.chk_class.name)
         abort(503)
 
     if 'ready' in request.path:
-        log_info('GS RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR')
-        gs.store.redis.psetex(PREFIX + gs.chk_class.name, 5000, PREFIX + gs.chk_class.name)
+        gs.store.redis.expire(PREFIX + gs.chk_class.name, 10000)
         return json.dumps(True)
     elif 'restart' in request.path:
         gs.chk_class.restart = True
@@ -247,5 +249,4 @@ def report():
     return json.dumps(result)
 
 
-gs.chk_class.not_ready = False
 gs.chk_class.max_not_ready_cnt = 11

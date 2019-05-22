@@ -1,31 +1,12 @@
-FROM python:3
-
-RUN pip install flask
-RUN pip install redis
-RUN pip install requests
-RUN pip install timeloop
+FROM 127.0.0.1:5556/ordershop:python
 
 RUN mkdir -p /app/crm_service
-RUN mkdir -p /app/lib
-RUN mkdir -p /app/common
-
 WORKDIR /app/crm_service
 COPY crm_service ./
 
-WORKDIR /app/lib
-COPY lib ./
-
-WORKDIR /app/common
-COPY common ./
-
-WORKDIR /app
-
-ENV FLASK_ENV development
-ENV LOGLEVEL DEBUG
 ENV FLASK_APP /app/crm_service/crm_service.py
-ENV PYTHONPATH /app
 
-EXPOSE 5000
+EXPOSE ${PORT}
 
 CMD [ "flask", "run", "--host=0.0.0.0" ]
 
